@@ -1,0 +1,2123 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>记忆系统 MVP</title>
+<style>
+  :root{
+    --bg: #f5f4ed;
+    --surface: #faf9f5;
+    --surface2: #ffffff;
+    --text: #141413;
+    --text2: #5e5d59;
+    --text3: #87867f;
+    --border: #f0eee6;
+    --border2: #e8e6dc;
+    --brand: #c96442;
+    --brand2: #d97757;
+    --focus: #3898ec;
+    --ring: #d1cfc5;
+    --shadow-whisper: rgba(0,0,0,0.05) 0px 4px 24px;
+    --ring-1: 0px 0px 0px 0px, var(--ring) 0px 0px 0px 1px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --font-serif: Georgia, "Times New Roman", serif;
+    --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; min-height: 100dvh; }
+  body { font-family: var(--font-sans); background: var(--bg); color: var(--text); min-height: 100dvh; padding: 20px; display: flex; flex-direction: column; }
+  h1 { font-family: var(--font-serif); font-size: 20px; font-weight: 500; margin-bottom: 12px; color: var(--text); flex-shrink: 0; line-height: 1.2; }
+
+  /* 首屏：默认窄屏为纵向 + 顶栏 API + 标签；宽屏见下方 min-width:1101px */
+  #landing {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+    width: 100%;
+    align-items: stretch;
+  }
+  .hero {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px 16px 14px;
+    box-shadow: var(--shadow-whisper);
+  }
+  .hero-title { font-family: var(--font-serif); font-size: 22px; font-weight: 500; line-height: 1.2; margin-bottom: 6px; color: var(--text); }
+  .hero-sub { font-size: 14px; color: var(--text2); line-height: 1.55; }
+  .hero-sub code { font-family: var(--font-mono); font-size: 12px; background: rgba(0,0,0,0.04); padding: 1px 6px; border-radius: 8px; border: 1px solid var(--border); }
+  .landing-api-global {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    flex-shrink: 0;
+    box-shadow: var(--ring-1);
+  }
+  .landing-api-global label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 6px; letter-spacing: 0.02em; }
+  .landing-api-global input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-family: inherit;
+    margin-bottom: 8px;
+    box-sizing: border-box;
+    background: var(--surface2);
+    color: var(--text);
+  }
+  .landing-api-global input:focus { outline: none; border-color: var(--focus); box-shadow: 0 0 0 2px rgba(56,152,236,0.14); }
+  .api-key-hint { font-size: 12px; color: var(--text3); line-height: 1.5; margin: 0; }
+
+  .intent {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    box-shadow: var(--ring-1);
+  }
+  .intent-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .intent-btn{
+    flex: 1 1 180px;
+    min-width: 180px;
+    padding: 10px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    color: var(--text);
+    cursor: pointer;
+    text-align: left;
+    line-height: 1.25;
+    font-family: inherit;
+  }
+  .intent-btn small { display:block; margin-top: 4px; color: var(--text2); font-size: 12px; line-height: 1.35; }
+  .intent-btn[aria-pressed="true"]{
+    border-color: var(--brand);
+    box-shadow: 0px 0px 0px 1px var(--brand);
+  }
+  .intent-title { font-size: 12px; color: var(--text2); letter-spacing: 0.02em; }
+
+  .ready-bar{
+    display:flex;
+    flex-wrap:wrap;
+    gap: 8px;
+    align-items:center;
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .ready-pill{
+    display:inline-flex;
+    align-items:center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+  }
+  .ready-pill.ok{ border-color: rgba(201,100,66,0.35); }
+  .ready-pill.bad{ border-color: rgba(181,51,51,0.35); }
+  .ready-dot{ width: 8px; height: 8px; border-radius: 999px; background: var(--text3); }
+  .ready-pill.ok .ready-dot{ background: var(--brand); }
+  .ready-pill.bad .ready-dot{ background: #b53333; }
+  .primary-cta-row{ display:flex; gap: 10px; align-items:center; flex-wrap: wrap; }
+  #primary-cta{
+    padding: 10px 16px;
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--brand);
+    color: var(--surface2);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    box-shadow: 0px 0px 0px 1px var(--brand);
+  }
+  #primary-cta:hover{ filter: brightness(0.98); }
+  #primary-cta:disabled{ opacity: 0.55; cursor: default; }
+  .primary-cta-hint{ font-size: 12px; color: var(--text3); line-height: 1.45; }
+
+  /* 旧 tabstrip：保留结构与无障碍语义，但默认隐藏（由新的意图选择替代） */
+  .landing-tabstrip { display:none; }
+
+  /* 窄屏：仅显示当前标签对应面板，面板内滚动 */
+  @media (max-width: 1100px) {
+    #landing[data-landing-tab="0"] #col-fast,
+    #landing[data-landing-tab="0"] #col-quick { display: none !important; }
+    #landing[data-landing-tab="1"] #col-simple,
+    #landing[data-landing-tab="1"] #col-quick { display: none !important; }
+    #landing[data-landing-tab="2"] #col-simple,
+    #landing[data-landing-tab="2"] #col-fast { display: none !important; }
+
+    #landing[data-landing-tab="0"] #col-simple,
+    #landing[data-landing-tab="1"] #col-fast,
+    #landing[data-landing-tab="2"] #col-quick {
+      display: flex !important;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    /* 窄屏由整块面板滚动，避免右栏内再套一层滚动条 */
+    #col-quick #quick-prompt-preview {
+      flex: 1 1 auto;
+      min-height: 80px;
+      overflow-y: visible;
+    }
+
+    /* 对话页：窄屏上下堆叠；优先放大消息区与输入框，压缩 TTS 表单与底部记忆区 */
+    #main.visible {
+      flex-direction: column;
+    }
+    #main.visible #chat-col {
+      flex: 1 1 0;
+      min-height: 0;
+    }
+    #main.visible #msgs {
+      flex: 1 1 0;
+      min-height: min(36vh, 260px);
+    }
+    #main.visible #input-panel {
+      max-height: min(50vh, 480px);
+    }
+    #main.visible #msg-input {
+      min-height: 88px;
+      max-height: min(28vh, 220px);
+    }
+    #main.visible #volc-tts-client {
+      max-height: none;
+      overflow-y: visible;
+      margin-bottom: 6px !important;
+      padding: 8px 10px !important;
+    }
+    .volc-tts-grid-row {
+      grid-template-columns: 1fr;
+    }
+    #main.visible #tts-row label {
+      font-size: 11px !important;
+      line-height: 1.4 !important;
+    }
+    #mem-col {
+      width: 100%;
+      max-width: 100%;
+      max-height: min(22vh, 168px);
+      flex-shrink: 0;
+      gap: 6px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    #mem-col .card {
+      padding: 8px 10px;
+    }
+    #mem-col .card h3 {
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+    /* 图例、本轮检索在窄屏占高且非核心：隐藏，记忆库仍可滚动查看 */
+    #mem-col > .card:nth-child(2),
+    #mem-col > .card:nth-child(3) {
+      display: none;
+    }
+    #mem-list {
+      max-height: 80px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+  .landing-card {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    overflow: hidden;
+    box-shadow: var(--ring-1);
+  }
+  /* 在“单路径优先”模式下，通过 aria-hidden 直接隐藏其余面板 */
+  #landing [aria-hidden="true"] { display: none !important; }
+  .landing-heading {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--brand);
+    margin: 0 0 10px;
+    flex-shrink: 0;
+    letter-spacing: 0.02em;
+  }
+  .setup-panel {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  #col-quick {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  #col-quick .quick-hint { font-size: 13px; color: var(--text2); margin-bottom: 10px; line-height: 1.55; flex-shrink: 0; }
+  #col-quick #quick-prompt-preview {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    flex: 1;
+    min-height: 120px;
+    overflow-y: auto;
+    padding: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    margin-bottom: 10px;
+  }
+  #col-quick #quick-status { font-size: 13px; color: var(--text2); min-height: 20px; margin-bottom: 8px; flex-shrink: 0; }
+  #quick-btn { padding: 8px 20px; background: var(--text); color: var(--surface2); border: none; border-radius: var(--radius-sm); font-size: 14px; cursor: pointer; font-family: inherit; flex-shrink: 0; box-shadow: var(--ring-1); }
+  #quick-btn:hover { filter: brightness(0.98); }
+  #quick-btn:disabled { background: #999; cursor: default; }
+  .setup-panel label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 6px; letter-spacing: 0.02em; }
+  .setup-panel input, .setup-panel textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--border2); border-radius: var(--radius-sm); font-size: 14px; font-family: inherit; margin-bottom: 12px; background: var(--surface2); color: var(--text); }
+  .setup-panel input:focus, .setup-panel textarea:focus { outline: none; border-color: var(--focus); box-shadow: 0 0 0 2px rgba(56,152,236,0.14); }
+  .setup-panel textarea:not(.prompt-textarea) { height: 60px; resize: vertical; }
+  .setup-panel textarea.prompt-textarea { height: auto; min-height: 120px; margin-bottom: 0; font-size: 12px; }
+  #pasted-system { min-height: 200px; height: 260px; font-size: 13px; line-height: 1.5; }
+  #paste-btn, #snippets-btn, #build-oneclick-btn { padding: 8px 20px; background: var(--text); color: var(--surface2); border: none; border-radius: var(--radius-sm); font-size: 14px; cursor: pointer; font-family: inherit; margin-bottom: 10px; box-shadow: var(--ring-1); }
+  #paste-btn:hover, #snippets-btn:hover, #build-oneclick-btn:hover { filter: brightness(0.98); }
+  #paste-btn:disabled, #snippets-btn:disabled, #build-oneclick-btn:disabled { background: #999; cursor: default; }
+  #build-oneclick-btn { width: 100%; background: var(--brand); margin-bottom: 8px; box-shadow: 0px 0px 0px 1px var(--brand); }
+  #build-oneclick-btn:hover { filter: brightness(0.98); }
+  #build-oneclick-btn:disabled { background: #7a9ab8; }
+  #build-progress-wrap { margin-bottom: 10px; }
+  #build-progress { width: 100%; height: 10px; vertical-align: middle; }
+  #build-status-line { font-size: 12px; color: var(--text2); min-height: 36px; line-height: 1.45; margin-bottom: 10px; }
+  .stage-row{ display:flex; flex-wrap:wrap; gap:8px; margin: 8px 0 10px; }
+  .stage-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .stage-chip .dot{ width: 8px; height: 8px; border-radius: 999px; background: var(--text3); }
+  .stage-chip.active{ border-color: rgba(201,100,66,0.45); color: var(--text); }
+  .stage-chip.active .dot{ background: var(--brand); }
+  .setup-links { font-size: 13px; margin-bottom: 12px; line-height: 1.5; }
+  .setup-links a { color: var(--brand); }
+  .setup-step { font-size: 13px; font-weight: 600; color: var(--text); margin: 16px 0 8px; border-top: 1px solid var(--border2); padding-top: 14px; }
+  .setup-step:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+  .prompt-pack { margin-bottom: 12px; }
+  .prompt-pack > label { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 6px; display: block; }
+  .prompt-pack .prompt-hint { font-size: 12px; color: var(--text2); line-height: 1.5; margin-bottom: 8px; }
+  .prompt-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 10px; }
+  .prompt-textarea {
+    flex: 1;
+    min-height: 140px;
+    font-size: 12px;
+    line-height: 1.45;
+    font-family: var(--font-mono);
+    resize: vertical;
+    background: var(--surface2);
+  }
+  .copy-prompt-btn {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    font-size: 12px;
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    background: var(--surface2);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .copy-prompt-btn:hover { filter: brightness(0.98); }
+
+  #main { display: none; gap: 16px; flex: 1; min-height: 0; }
+  #main.visible { display: flex; align-items: stretch; }
+
+  #chat-col { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+  #mem-col { width: 280px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; box-shadow: var(--ring-1); }
+
+  /* 消息区占满中间空间；min-height 抬高以免被底部配置区挤没 */
+  #msgs { flex: 1; min-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 8px; box-shadow: var(--ring-1); }
+  .msg { max-width: 80%; padding: 9px 13px; border-radius: 12px; font-size: 14px; line-height: 1.55; word-break: break-word; }
+  .msg.user { align-self: flex-end; background: #1a1a1a; color: #fff; border-bottom-right-radius: 3px; }
+  .msg.ai { align-self: flex-start; background: var(--surface2); border: 1px solid var(--border); border-bottom-left-radius: 3px; }
+  .msg.ai.tts-enabled { display: flex; flex-direction: column; gap: 8px; }
+  .msg-ai-text { white-space: pre-wrap; }
+  .msg-tts-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 8px; margin-top: 4px; border-top: 1px solid var(--border2); font-size: 12px; color: var(--text2); }
+  .msg-tts-status { flex: 1 1 100%; min-height: 1.2em; }
+  .msg-tts-hint { flex: 1 1 100%; font-size: 11px; color: #999; line-height: 1.45; margin: 0; }
+  .msg-tts-audio { flex: 1 1 200px; max-width: 100%; height: 36px; vertical-align: middle; }
+  .msg-tts-btn { padding: 5px 12px; font-size: 12px; border-radius: 8px; border: 1px solid var(--border2); background: var(--surface2); cursor: pointer; font-family: inherit; white-space: nowrap; box-shadow: var(--ring-1); }
+  .msg-tts-btn:hover:not(:disabled) { filter: brightness(0.98); }
+  .msg-tts-btn:disabled { opacity: 0.6; cursor: default; }
+  .msg-video-card{
+    margin-top: 10px;
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--surface2);
+    box-shadow: var(--ring-1);
+  }
+  .msg-video-thumb{
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: linear-gradient(135deg, rgba(201,100,66,0.18), rgba(20,20,19,0.06));
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .msg-video-thumb-inner{
+    display:flex;
+    flex-direction:column;
+    gap: 6px;
+    align-items:center;
+    text-align:center;
+    padding: 14px;
+    color: var(--text);
+  }
+  .msg-video-play{
+    border: none;
+    border-radius: 999px;
+    padding: 8px 14px;
+    background: var(--text);
+    color: var(--surface2);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    box-shadow: var(--ring-1);
+  }
+  .msg-video-play:hover{ filter: brightness(0.98); }
+  .msg-video-meta{
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text2);
+    border-top: 1px solid var(--border);
+  }
+  .msg-video-player{
+    display:block;
+    width: 100%;
+    max-height: min(46vh, 420px);
+    background: #000;
+  }
+  .msg.system { align-self: center; font-size: 12px; color: #999; background: none; border: none; padding: 2px 0; }
+  .thinking { align-self: flex-start; display: flex; gap: 5px; padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-md); border-bottom-left-radius: 3px; box-shadow: var(--ring-1); }
+  .thinking span { width: 6px; height: 6px; border-radius: 50%; background: #bbb; animation: blink 1.2s infinite; }
+  .thinking span:nth-child(2) { animation-delay: .2s; }
+  .thinking span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+
+  /* 先保证对话+发送框可见，TTS/数字人折叠在下方可滚动区，避免顶没聊天区 */
+  #input-panel {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+    max-height: min(52vh, 540px);
+  }
+  #input-panel-compose {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .input-panel-advanced {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding-right: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  #input-row { display: flex; gap: 8px; align-items: stretch; }
+  #msg-input { flex: 1; min-height: 100px; max-height: min(32vh, 280px); padding: 10px 12px; border: 1px solid var(--border2); border-radius: var(--radius-sm); font-size: 14px; line-height: 1.5; font-family: inherit; outline: none; resize: vertical; background: var(--surface2); color: var(--text); }
+  #msg-input:focus { border-color: var(--focus); box-shadow: 0 0 0 2px rgba(56,152,236,0.14); }
+  #send-btn { padding: 10px 20px; background: var(--text); color: var(--surface2); border: none; border-radius: var(--radius-sm); font-size: 14px; cursor: pointer; font-family: inherit; white-space: nowrap; align-self: stretch; box-shadow: var(--ring-1); }
+  #send-btn:hover { filter: brightness(0.98); }
+  #send-btn:disabled { background: #ccc; cursor: default; }
+  #status { font-size: 12px; color: #999; min-height: 18px; margin-top: 5px; padding-left: 2px; }
+
+  .tts-row-compact {
+    font-size: 12px;
+    color: #666;
+    margin: 0;
+  }
+  .tts-row-compact label {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 400;
+  }
+
+  .volc-tts-client {
+    font-size: 12px;
+    color: #555;
+    margin-bottom: 8px;
+    padding: 10px 12px;
+    background: #f7f7f7;
+    border-radius: 10px;
+    border: 1px solid #e8e8e8;
+  }
+  .volc-tts-client .volc-tts-title {
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: #666;
+  }
+  .volc-tts-grid-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 14px;
+    margin-bottom: 8px;
+  }
+  .volc-tts-field {
+    display: block;
+    margin-bottom: 0;
+    font-size: 12px;
+    color: #555;
+  }
+  .volc-tts-field input {
+    display: block;
+    width: 100%;
+    margin-top: 4px;
+    padding: 7px 9px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 13px;
+    box-sizing: border-box;
+    font-family: inherit;
+  }
+  .volc-tts-hint {
+    margin: 4px 0 0;
+    font-size: 11px;
+    color: #888;
+    line-height: 1.5;
+  }
+
+  details.volc-tts-details {
+    font-size: 12px;
+    color: #555;
+    padding: 6px 10px;
+    background: #f7f7f7;
+    border-radius: 10px;
+    border: 1px solid #e8e8e8;
+  }
+  details.volc-tts-details > summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #555;
+    list-style: none;
+    font-size: 12px;
+  }
+  details.volc-tts-details > summary::-webkit-details-marker { display: none; }
+  details.volc-tts-details[open] > summary { margin-bottom: 8px; }
+
+  details.wan-s2v-mvp {
+    font-size: 12px;
+    color: #555;
+    margin-bottom: 0;
+    padding: 8px 10px;
+    background: #f3f6fa;
+    border-radius: 10px;
+    border: 1px solid #dde5ef;
+  }
+  details.wan-s2v-mvp > summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #3d5a80;
+    list-style: none;
+  }
+  details.wan-s2v-mvp > summary::-webkit-details-marker { display: none; }
+  .wan-s2v-mvp-body { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .wan-s2v-mvp-body label { font-size: 12px; color: #666; }
+  .wan-s2v-use-last-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+    color: #444;
+    cursor: pointer;
+    line-height: 1.45;
+  }
+  .wan-s2v-use-last-label input { margin-top: 2px; flex-shrink: 0; }
+  .wan-s2v-mvp-hint { font-size: 11px; color: #888; line-height: 1.5; margin: 0; }
+  .wan-s2v-mvp-body textarea {
+    width: 100%; min-height: 52px; padding: 8px; border: 1px solid #ccc; border-radius: 6px;
+    font-size: 13px; font-family: inherit; box-sizing: border-box; resize: vertical;
+  }
+  .wan-s2v-mvp-body input[type="file"] { font-size: 12px; }
+  .wan-s2v-mvp-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  #wan-s2v-submit {
+    padding: 8px 16px; background: var(--brand); color: var(--surface2); border: none; border-radius: var(--radius-sm);
+    font-size: 13px; cursor: pointer; font-family: inherit; box-shadow: 0px 0px 0px 1px var(--brand);
+  }
+  #wan-s2v-submit:hover:not(:disabled) { filter: brightness(0.98); }
+  #wan-s2v-submit:disabled { background: #9ab; cursor: default; }
+  #wan-s2v-status { font-size: 12px; color: #666; min-height: 1.2em; }
+  #wan-s2v-video { margin-top: 8px; border-radius: 8px; background: #000; }
+
+  .card h3 { font-size: 12px; font-weight: 500; color: #888; margin-bottom: 10px; }
+  .mem-item { font-size: 12px; padding: 6px 9px; border-radius: 6px; margin-bottom: 5px; line-height: 1.5; display: flex; gap: 6px; align-items: flex-start; }
+  .mem-item.fact    { background: rgba(201,100,66,0.10); color: var(--text); }
+  .mem-item.emotion { background: #FEF3E2; color: #633806; }
+  .mem-item.habit   { background: #E3F5EE; color: #085041; }
+  .mem-item.relation{ background: #F0EFFE; color: #3c3489; }
+  .mem-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .fact .mem-dot    { background: var(--brand); }
+  .emotion .mem-dot { background: #ba7517; }
+  .habit .mem-dot   { background: #0f6e56; }
+  .relation .mem-dot{ background: #534ab7; }
+  .empty { font-size: 12px; color: #bbb; text-align: center; padding: 14px 0; }
+
+  .badge { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 4px; margin-right: 4px; font-weight: 500; }
+  .badge.fact     { background: rgba(201,100,66,0.12); color: var(--brand); }
+  .badge.emotion  { background: #FEF3E2; color: #ba7517; }
+  .badge.habit    { background: #E3F5EE; color: #0f6e56; }
+  .badge.relation { background: #F0EFFE; color: #534ab7; }
+
+  #info-bar { font-size: 12px; color: var(--text3); margin-bottom: 10px; }
+
+  @media (min-width: 1101px) {
+    /* 宽屏同样保持“单路径优先”，避免三栏同时出现造成选择成本 */
+    #landing {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: stretch;
+    }
+    .landing-tabstrip { display: none !important; }
+
+    /* 宽屏对话：拉高消息区与输入框，TTS 凭证用两列排布（见 .volc-tts-grid-row） */
+    #main.visible #chat-col {
+      flex: 1 1 0;
+      min-height: 0;
+    }
+    #main.visible #msgs {
+      flex: 1 1 0;
+      min-height: min(38vh, 440px);
+    }
+    #main.visible #input-panel {
+      max-height: min(48vh, 520px);
+    }
+    #main.visible #msg-input {
+      min-height: 110px;
+      max-height: min(30vh, 300px);
+    }
+  }
+</style>
+</head>
+<body>
+
+<h1>记忆系统</h1>
+
+<div id="landing" data-landing-tab="0">
+  <div class="hero">
+    <div class="hero-title">把小说人物“带进对话”</div>
+    <div class="hero-sub">先选你的目标，再按页面提示补齐必要信息。首次上手建议从“快速体验”开始，成功进入对话后再回头做一键生成（更慢更贵）。</div>
+  </div>
+  <div class="landing-api-global">
+    <label for="api-key">DeepSeek API Key（一键生成与对话均使用）</label>
+    <input type="password" id="api-key" placeholder="sk-..." autocomplete="off">
+    <p class="api-key-hint">火山朗读（TTS）请进入对话后在页面底部灰色区填写，或由服务端配置环境变量。</p>
+  </div>
+  <div class="intent" aria-label="开始方式">
+    <div class="intent-title">你想先做什么？</div>
+    <div class="intent-row">
+      <button type="button" class="intent-btn" id="intent-quick" aria-pressed="true" onclick="setIntent('quick')">
+        快速体验（推荐）
+        <small>不需要小说文件：直接用预设进入对话，先跑通流程。</small>
+      </button>
+      <button type="button" class="intent-btn" id="intent-paste" aria-pressed="false" onclick="setIntent('paste')">
+        我已经有扮演指令
+        <small>把 system 提示词粘贴进来，立刻开始对话。</small>
+      </button>
+      <button type="button" class="intent-btn" id="intent-build" aria-pressed="false" onclick="setIntent('build')">
+        我想从小说一键生成
+        <small>上传 txt + 人物名，全流程生成后自动进入对话（慢）。</small>
+      </button>
+    </div>
+    <div class="primary-cta-row">
+      <button type="button" id="primary-cta" onclick="primaryCta()">开始体验</button>
+      <div class="primary-cta-hint" id="primary-cta-hint">提示：下面会显示“还缺什么”。补齐后再点。</div>
+    </div>
+    <div class="ready-bar" id="ready-bar" aria-live="polite"></div>
+  </div>
+  <div class="landing-tabstrip" role="tablist" aria-label="首屏功能分区">
+    <button type="button" class="landing-tab" role="tab" id="landing-tab-btn-0" aria-selected="true" aria-controls="col-simple">一键生成（费时）</button>
+    <button type="button" class="landing-tab" role="tab" id="landing-tab-btn-1" aria-selected="false" aria-controls="col-fast">省时（deepseek生成）</button>
+    <button type="button" class="landing-tab" role="tab" id="landing-tab-btn-2" aria-selected="false" aria-controls="col-quick">快速体验（保尔柯察金）</button>
+  </div>
+  <section id="col-simple" class="landing-card" role="tabpanel" aria-labelledby="landing-tab-btn-0">
+    <h2 class="landing-heading">左栏 · 一键生成（本站跑全流程）</h2>
+    <div class="setup-panel">
+      <p style="font-size:13px;color:#666;margin-bottom:12px;line-height:1.55"><strong>上传小说</strong>、<strong>人物名</strong>，并在<strong>页面顶部</strong>填写 <strong>DeepSeek API Key</strong>，主按钮会在服务端完成：抽片段 → 多批归纳 → 人物档案 → 扮演指令，并<strong>自动进入对话</strong>（耗时与费用随书目规模变化；进度条为阶段估算）。仅需 md、不想扣本站 API 时，用下方「仅下载片段」或用<strong>中栏</strong>网页版流程。</p>
+
+      <label>小说文本（.txt）</label>
+      <input type="file" id="novel-file" accept=".txt,text/plain">
+      <label>人物名称</label>
+      <input type="text" id="character-name" placeholder="例如：楚轩">
+      <label>名词表 / 别名（可选）</label>
+      <textarea id="aliases-input" rows="2" placeholder="别称等，每行一个或逗号分隔"></textarea>
+
+      <div id="build-progress-wrap">
+        <progress id="build-progress" max="100" value="0"></progress>
+      </div>
+      <div class="stage-row" id="build-stages" aria-label="一键生成阶段">
+        <div class="stage-chip" data-stage="submit"><span class="dot"></span>提交</div>
+        <div class="stage-chip" data-stage="snippets"><span class="dot"></span>抽片段</div>
+        <div class="stage-chip" data-stage="summarize"><span class="dot"></span>归纳</div>
+        <div class="stage-chip" data-stage="compile"><span class="dot"></span>编译</div>
+        <div class="stage-chip" data-stage="session"><span class="dot"></span>进入对话</div>
+      </div>
+      <div id="build-status-line"></div>
+      <button type="button" id="build-oneclick-btn" onclick="runFullBuildAndChat()">一键生成扮演指令并进入对话</button>
+
+      <p class="setup-step">仅本地抽片段（下载 md）</p>
+      <div id="snippet-status" style="font-size:13px;color:#666;min-height:20px;margin-bottom:8px;"></div>
+      <button type="button" id="snippets-btn" onclick="downloadSnippetsFile()">仅下载《角色片段》.md</button>
+    </div>
+  </section>
+
+  <section id="col-fast" class="landing-card" role="tabpanel" aria-labelledby="landing-tab-btn-1">
+    <h2 class="landing-heading">中栏 · 省时间（网页版 + 回本站对话）</h2>
+    <div class="setup-panel">
+      <p style="font-size:13px;color:#666;margin-bottom:12px;line-height:1.55"><strong>全自动</strong>见<strong>一键生成</strong>主按钮。本栏适合<strong>不想把全书交给本站 API</strong>的用户：先在「一键生成」里<strong>仅下载</strong>《角色片段》.md，再打开网页版上传 md，复制<strong>提示词 A / B</strong>省力。填好扮演指令后<strong>回本站</strong>粘贴到下方即可（API Key 在<strong>页面顶部</strong>）。技能链 <code>extract-fiction-character</code> → <code>fiction-persona</code>。</p>
+      <p class="setup-links"><a href="https://chat.deepseek.com/" target="_blank" rel="noopener noreferrer">打开 DeepSeek 网页版</a> · API Key 在<strong>页面顶部</strong></p>
+
+      <p class="setup-step" style="border-top:none;padding-top:0;margin-top:0;">提示词 A — 从片段 md 提取《人物档案》</p>
+      <div class="prompt-pack">
+        <p class="prompt-hint">md 已上传或已粘贴后，将本段复制到网页版发送。</p>
+        <div class="prompt-row">
+          <textarea id="prompt-a" class="prompt-textarea" readonly rows="10" aria-label="提示词 A"></textarea>
+          <button type="button" class="copy-prompt-btn" onclick="copyPromptById('prompt-a')">复制</button>
+        </div>
+      </div>
+      <p class="setup-step">提示词 B — 将《人物档案》编译成扮演用 system 提示词</p>
+      <div class="prompt-pack">
+        <p class="prompt-hint">拿到完整档案后使用；档案正文贴在提示词后或作为附件。</p>
+        <div class="prompt-row">
+          <textarea id="prompt-b" class="prompt-textarea" readonly rows="12" aria-label="提示词 B"></textarea>
+          <button type="button" class="copy-prompt-btn" onclick="copyPromptById('prompt-b')">复制</button>
+        </div>
+      </div>
+
+      <p class="setup-step">粘贴扮演指令并进入对话</p>
+      <label for="paste-character-name">人物名称（进入对话后显示在顶部标题）</label>
+      <input type="text" id="paste-character-name" placeholder="例如：楚轩" autocomplete="off">
+      <label>从网页版得到的扮演指令（全文粘贴）</label>
+      <textarea id="pasted-system" placeholder="将扮演提示词整段粘贴到这里…"></textarea>
+      <label>对话补充规则（可选，会追加在扮演指令末尾）</label>
+      <textarea id="rules-input">- 不要编造事实；不确定就说「不确定」，可追问用户补充。
+- 不要输出大段原文摘录。
+- 回复简洁自然。</textarea>
+      <div id="paste-status" style="font-size:13px;color:#666;min-height:20px;margin-bottom:8px;"></div>
+      <button type="button" id="paste-btn" onclick="startPasteSession()">粘贴扮演指令并进入对话</button>
+    </div>
+  </section>
+
+  <section id="col-quick" class="landing-card" role="tabpanel" aria-labelledby="landing-tab-btn-2">
+    <h2 class="landing-heading">右栏 · 快速体验（保尔预设）</h2>
+    <p class="quick-hint">不必准备小说与提示词：使用服务端预置「保尔·柯察金」扮演稿。请在<strong>页面顶部</strong>填好 <strong>DeepSeek API Key</strong>，再点下方按钮。进入对话后，若要用朗读：在页面<strong>最下方输入区上方</strong>找「火山 TTS 凭证」。</p>
+    <div id="quick-prompt-preview">预设：保尔·柯察金（《钢铁是怎样炼成的》）
+
+说话方式：日常短句、直白；对同志坦率，对敌人和官僚作风激烈；常用「同志们」开场、以「一定」表决心；偶尔「真见鬼」。
+
+设定要点：布尔什维克战士，身体后期重伤致残（瘫痪、失明等），仍坚持学习、写作；不编造文本未写明的细节；不确定时承认未写明。
+
+点击下方按钮后，由<strong>当前站点</strong>创建会话；对话仍走本站 <code>/api/chat</code>（与左栏粘贴流程相同）。</div>
+    <div id="quick-status"></div>
+    <button type="button" id="quick-btn" onclick="startQuickPavel()">快速进入：保尔·柯察金</button>
+  </section>
+</div>
+
+<div id="main">
+  <div id="chat-col">
+    <div id="info-bar"></div>
+    <div id="msgs">
+      <div class="msg system">开始聊天，记忆会自动积累在右侧</div>
+    </div>
+    <div id="input-panel">
+      <div id="input-panel-compose">
+        <div id="status"></div>
+        <div id="input-row">
+          <textarea id="msg-input" rows="4" placeholder="输入消息… Enter 发送；Shift+Enter 换行。火山 TTS / 数字人配置在下方折叠区。"></textarea>
+          <button id="send-btn" type="button" onclick="sendMsg()">发送</button>
+        </div>
+        <div id="tts-row" class="tts-row-compact">
+          <label>
+            <input type="checkbox" id="tts-speak-checkbox">
+            助手回复后自动朗读（火山 TTS，需在下方展开填写凭证）
+          </label>
+        </div>
+      </div>
+      <div class="input-panel-advanced" id="input-panel-advanced">
+        <details class="volc-tts-details" id="volc-tts-details">
+          <summary>火山 TTS 凭证（点击展开）</summary>
+          <div id="volc-tts-client" class="volc-tts-client">
+            <div class="volc-tts-title">页面填写（失焦写入本机）</div>
+            <div class="volc-tts-grid-row">
+              <label class="volc-tts-field">App ID
+                <input type="text" id="volc-tts-app-id" name="volc_app_id" autocomplete="off" placeholder="与控制台应用一致">
+              </label>
+              <label class="volc-tts-field">Access Token
+                <input type="password" id="volc-tts-access-token" name="volc_access_token" autocomplete="off" placeholder="控制台获取的 token">
+              </label>
+            </div>
+            <div class="volc-tts-grid-row">
+              <label class="volc-tts-field">复刻音色 ID / voice_type（可选）
+                <input type="text" id="volc-tts-voice-type" name="volc_voice_type" autocomplete="off" placeholder="例如：S_xxxxx（声音复刻训练成功后获得）">
+              </label>
+              <label class="volc-tts-field">cluster（可选）
+                <input type="text" id="volc-tts-cluster" name="volc_cluster" autocomplete="off" placeholder="留空即可；声音复刻 S_ 音色会自动用 volcano_icl">
+              </label>
+            </div>
+            <p class="volc-tts-hint">请求由<strong>当前站点</strong>代理火山；服务端可配 <code>VOLC_TTS_*</code> 则此处可留空。<code>S_xxxxx</code> 填 voice_type；勿把说明粘进 cluster。</p>
+          </div>
+        </details>
+        <details class="wan-s2v-mvp" id="wan-s2v-mvp">
+          <summary>数字人视频 MVP（阿里云 wan2.2-s2v，点击展开）</summary>
+          <div class="wan-s2v-mvp-body">
+            <p class="wan-s2v-mvp-hint">默认用<strong>上一轮助手回复</strong>作口播，经<strong>火山 TTS</strong>合成音频再送阿里云。可改选手写口播或 AI 现写。需公网 <code>WAN_S2V_PUBLIC_BASE_URL</code> 与 <code>DASHSCOPE_API_KEY</code>；音频须远短于 20 秒。</p>
+            <label class="wan-s2v-use-last-label">
+              <input type="checkbox" id="wan-s2v-use-last-reply" checked>
+              使用上一轮助手回复作为口播（与自动朗读同源文本，再走 TTS）
+            </label>
+            <label for="wan-s2v-image">肖像图（jpg/png/webp 等）</label>
+            <input type="file" id="wan-s2v-image" accept="image/jpeg,image/png,image/webp,image/bmp,.jpg,.jpeg,.png,.webp,.bmp">
+            <label for="wan-s2v-spoken">手写口播（可选；填写则优先于上一回复）</label>
+            <textarea id="wan-s2v-spoken" placeholder="留空则用上一回复；填写则以此为准，建议短于 20 秒朗读"></textarea>
+            <label for="wan-s2v-llm-prompt">AI 生成台词提示（可选；填写则优先于上一回复，且不再用上一回复）</label>
+            <textarea id="wan-s2v-llm-prompt" placeholder="例如：用角色口吻说一句问候；与上手写口播二选一即可"></textarea>
+            <div class="wan-s2v-mvp-row">
+              <label for="wan-s2v-resolution">分辨率</label>
+              <select id="wan-s2v-resolution">
+                <option value="480P" selected>480P（省费用）</option>
+                <option value="720P">720P</option>
+              </select>
+            </div>
+            <button type="button" id="wan-s2v-submit" onclick="submitWanS2vMvp()">生成视频</button>
+            <div id="wan-s2v-status"></div>
+            <video id="wan-s2v-video" controls playsinline style="display:none;max-width:100%;max-height:min(40vh,360px);"></video>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <div id="mem-col">
+    <div class="card">
+      <h3>记忆库 <span id="mem-count" style="font-weight:400;color:#bbb">0 条</span></h3>
+      <div id="mem-list"><div class="empty">暂无记忆</div></div>
+    </div>
+    <div class="card">
+      <h3>本轮检索到</h3>
+      <div id="retrieved-list"><div class="empty">—</div></div>
+    </div>
+    <div class="card">
+      <h3>图例</h3>
+      <span class="badge fact">事实</span>
+      <span class="badge emotion">情绪</span>
+      <span class="badge habit">习惯</span>
+      <span class="badge relation">关系</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const PROMPT_A_SNIPPETS_TO_ARCHIVE = `你是严谨的小说人物设定提取助手。用户已提供《角色片段》.md（由本地脚本从小说抽取，内含多段「--- 片段 n (行 x-y) ---」及对应原文）。
+
+任务：只根据该 md 里出现的原文，输出一份完整的《小说人物档案》（markdown）。结构必须包含下列章节（保留标题与表格形式，逐格填写）：
+
+## Meta
+| 字段 | 内容 |
+|------|------|
+| character_name | （与片段目标人物一致） |
+| source_title | （若文中可判断书名则填，否则填「未知」） |
+| excerpts_scope | （可写「全书片段抽取」） |
+| language | 中文 |
+| last_updated | （今天日期） |
+
+## 1. Voice（说话方式）
+含：称呼与自称、节奏与句式、口头禅/高频句式；每项须有 Evidence（句子级短摘录）。
+
+## 2. Persona（人格与动机）
+表格：维度 | 结论 | 置信度（高/中/低）| Evidence。
+
+## 3. Goals（目标与冲突）
+长期/短期目标、核心矛盾、愿付出的代价；有 Evidence 与置信度。
+
+## 4. Relationships（关系模式）
+只写文中有依据的关键关系。
+
+## 5. Capabilities_and_limits
+能力与规则向限制；更硬的禁令写入下一节。
+
+## 6. HardBoundaries（扮演时必须遵守的禁区）
+
+## 7. OpenQuestions
+## 8. DoNotInfer（禁止模型在扮演时擅自补完的项目）
+
+硬性规则：
+- 禁止编造书中未出现的具体事实；材料不足写入 OpenQuestions 或 DoNotInfer，或标「低」置信度。
+- Evidence 只用短摘录，禁止输出大段原文或整章复制。
+- 若片段里有多人物，以 Meta / 用户说明中的目标人物为主，不混淆台词归属。
+
+请直接输出一整份填好的 markdown 档案，不要额外解释聊天过程。`;
+
+const PROMPT_B_ARCHIVE_TO_ROLEPLAY = `你是「角色扮演指令」编译器。用户将提供上一步得到的《小说人物档案》全文（markdown，附件或粘贴于下）。
+
+任务：把档案编译成一份可直接当作聊天「系统提示词」使用的《系统提示词（角色扮演稿）》（markdown），严格包含下列小节：
+
+## System
+
+### 1) Identity
+说明：你在扮演小说人物（非现实真人）；一句话身份定位来自档案 Persona/Goals。
+
+### 2) VoiceRules
+用命令式短句写说话规则；档案不足处写「勿编造语气细节」。可选 1～3 条极短示例句，勿长段复述原文。
+
+### 3) MotivationRules
+把 Persona + Goals 写成「决策与回应倾向」，避免把推断写成铁一般事实；低置信度内容要弱化。
+
+### 4) Boundaries
+优先逐条列出 HardBoundaries；再列出 DoNotInfer。二者冲突时以 HardBoundaries 为准。
+
+### 5) AllowedFacts
+只列小说/档案已明确的事实要点；禁止新增出生地、年龄、家人细节等未写明内容。
+
+### 6) UncertaintyHandling
+被问及档案未载信息时：先承认未写明，可反问用户希望如何设定；勿捏造。
+
+### 7) OutputStyle
+默认对话体，符合 VoiceRules；不要在回复里提「档案第几节」「本模板」等元信息。
+
+硬性规则：
+- 全文不要包含大段原文；若有例句须极短。
+- 不新增档案中没有的设定。
+
+请直接输出从 ## System 开始的完整 markdown，不要多余开场白。`;
+
+function copyPromptById(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.select();
+  el.setSelectionRange(0, el.value.length);
+  const t = el.value || '';
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(t).then(function () { alert('已复制到剪贴板'); }, function () { document.execCommand('copy'); alert('已尝试复制'); });
+  } else {
+    try { document.execCommand('copy'); alert('已复制到剪贴板'); } catch (e) { alert('复制失败，请手动全选复制'); }
+  }
+}
+
+function setLandingTab(index) {
+  const landing = document.getElementById('landing');
+  if (!landing) return;
+  const i = Math.max(0, Math.min(2, index));
+  landing.setAttribute('data-landing-tab', String(i));
+  const panelIds = ['col-simple', 'col-fast', 'col-quick'];
+  for (let j = 0; j < 3; j++) {
+    const btn = document.getElementById('landing-tab-btn-' + j);
+    if (btn) btn.setAttribute('aria-selected', j === i ? 'true' : 'false');
+    const panel = document.getElementById(panelIds[j]);
+    if (panel) panel.setAttribute('aria-hidden', j === i ? 'false' : 'true');
+  }
+  try { track('landing_tab_set', { tab: i }); } catch(e) {}
+  updateReadyUi();
+  updatePrimaryCta();
+}
+
+function wireLandingTabs() {
+  const panelIds = ['col-simple', 'col-fast', 'col-quick'];
+  function applySingleMode() {
+    // 转为“单路径优先”：不再在宽屏同时展示三栏，减少首次选择成本
+    panelIds.forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el && !el.hasAttribute('aria-hidden')) el.setAttribute('aria-hidden', 'true');
+    });
+    const landing = document.getElementById('landing');
+    if (!landing) return;
+    if (!landing.getAttribute('data-landing-tab')) landing.setAttribute('data-landing-tab', '2');
+    const cur = parseInt(landing.getAttribute('data-landing-tab') || '2', 10);
+    setLandingTab(isNaN(cur) ? 2 : cur);
+  }
+  applySingleMode();
+  for (let j = 0; j < 3; j++) {
+    const btn = document.getElementById('landing-tab-btn-' + j);
+    if (btn) {
+      btn.addEventListener('click', function () {
+        const idx = parseInt(this.id.replace('landing-tab-btn-', ''), 10);
+        setLandingTab(idx);
+      });
+    }
+  }
+}
+
+function setIntent(intent) {
+  const map = { build: 0, paste: 1, quick: 2 };
+  const tab = map[intent] != null ? map[intent] : 2;
+  const btns = [
+    { id: 'intent-build', k: 'build' },
+    { id: 'intent-paste', k: 'paste' },
+    { id: 'intent-quick', k: 'quick' },
+  ];
+  btns.forEach(function (x) {
+    const el = document.getElementById(x.id);
+    if (el) el.setAttribute('aria-pressed', x.k === intent ? 'true' : 'false');
+  });
+  setLandingTab(tab);
+  try { track('intent_set', { intent: intent }); } catch(e) {}
+}
+
+function _readyPill(label, ok, hint) {
+  return (
+    '<span class=\"ready-pill ' + (ok ? 'ok' : 'bad') + '\">' +
+    '<span class=\"ready-dot\"></span>' +
+    '<span>' + label + (hint ? (' · ' + hint) : '') + '</span>' +
+    '</span>'
+  );
+}
+
+function computeReady() {
+  const tab = parseInt((document.getElementById('landing') || {}).getAttribute?.('data-landing-tab') || '2', 10);
+  const key = (document.getElementById('api-key') || {}).value ? document.getElementById('api-key').value.trim() : '';
+  const fileEl = document.getElementById('novel-file');
+  const fileOk = !!(fileEl && fileEl.files && fileEl.files.length);
+  const nameBuild = (document.getElementById('character-name') || {}).value ? document.getElementById('character-name').value.trim() : '';
+  const namePaste = (document.getElementById('paste-character-name') || {}).value ? document.getElementById('paste-character-name').value.trim() : '';
+  const pasted = (document.getElementById('pasted-system') || {}).value ? document.getElementById('pasted-system').value.trim() : '';
+
+  const keyOk = !!key;
+  let checks = [{ id: 'key', label: 'API Key', ok: keyOk, hint: keyOk ? '已填' : '未填' }];
+  let canStart = false;
+  let ctaLabel = '开始体验';
+  let ctaHint = '提示：下面会显示“还缺什么”。补齐后再点。';
+
+  if (tab === 2) {
+    canStart = keyOk;
+    ctaLabel = '开始体验（快速进入对话）';
+    ctaHint = keyOk ? '将使用预设创建会话并进入对话。' : '先填写 API Key，然后一键进入对话。';
+  } else if (tab === 1) {
+    const nameOk = !!(namePaste || nameBuild);
+    const promptOk = pasted.length >= 20;
+    checks.push({ id: 'name', label: '人物名', ok: nameOk, hint: nameOk ? '已填' : '未填' });
+    checks.push({ id: 'prompt', label: '扮演指令', ok: promptOk, hint: promptOk ? '已粘贴' : '不足 20 字' });
+    canStart = keyOk && nameOk && promptOk;
+    ctaLabel = '创建会话并进入对话';
+    ctaHint = canStart ? '将把你粘贴的 system 提示词交给本站创建会话。' : '补齐人物名与扮演指令后即可进入对话。';
+  } else {
+    const nameOk = !!nameBuild;
+    checks.push({ id: 'file', label: '小说 txt', ok: fileOk, hint: fileOk ? '已选' : '未选' });
+    checks.push({ id: 'name', label: '人物名', ok: nameOk, hint: nameOk ? '已填' : '未填' });
+    canStart = keyOk && fileOk && nameOk;
+    ctaLabel = '一键生成并进入对话（较慢）';
+    ctaHint = canStart ? '将上传 txt 并在服务端跑完整流水线。' : '先补齐 API Key / 小说 txt / 人物名。';
+  }
+  return { tab: tab, checks: checks, canStart: canStart, ctaLabel: ctaLabel, ctaHint: ctaHint };
+}
+
+function updateReadyUi() {
+  const bar = document.getElementById('ready-bar');
+  if (!bar) return;
+  const r = computeReady();
+  bar.innerHTML = r.checks.map(function (c) { return _readyPill(c.label, c.ok, c.hint); }).join('');
+}
+
+function updatePrimaryCta() {
+  const btn = document.getElementById('primary-cta');
+  const hint = document.getElementById('primary-cta-hint');
+  if (!btn) return;
+  const r = computeReady();
+  btn.textContent = r.ctaLabel;
+  btn.disabled = !r.canStart;
+  if (hint) hint.textContent = r.ctaHint;
+}
+
+function wireReadyInputs() {
+  const ids = ['api-key','novel-file','character-name','paste-character-name','pasted-system'];
+  ids.forEach(function (id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', function () { updateReadyUi(); updatePrimaryCta(); });
+    el.addEventListener('change', function () { updateReadyUi(); updatePrimaryCta(); });
+  });
+}
+
+function primaryCta() {
+  const r = computeReady();
+  try { track('primary_cta_click', { tab: r.tab, canStart: r.canStart }); } catch(e) {}
+  if (!r.canStart) { track('primary_cta_blocked', { tab: r.tab }); updateReadyUi(); updatePrimaryCta(); return; }
+  if (r.tab === 2) return startQuickPavel();
+  if (r.tab === 1) return startPasteSession();
+  return runFullBuildAndChat();
+}
+
+function setBuildStageByPercent(pct) {
+  const row = document.getElementById('build-stages');
+  if (!row) return;
+  const chips = row.querySelectorAll('.stage-chip');
+  chips.forEach(function (c) { c.classList.remove('active'); });
+  let stage = 'submit';
+  if (pct >= 95) stage = 'session';
+  else if (pct >= 75) stage = 'compile';
+  else if (pct >= 30) stage = 'summarize';
+  else if (pct > 0) stage = 'snippets';
+  const order = ['submit','snippets','summarize','compile','session'];
+  let seen = true;
+  order.forEach(function (k) {
+    const el = row.querySelector('.stage-chip[data-stage=\"' + k + '\"]');
+    if (!el) return;
+    if (seen) el.classList.add('active');
+    if (k === stage) seen = false;
+  });
+}
+
+function track(name, data) {
+  try {
+    if (!window.__mmMetrics) window.__mmMetrics = { t0: (performance && performance.now ? performance.now() : Date.now()), events: [] };
+    const t = (performance && performance.now ? performance.now() : Date.now());
+    window.__mmMetrics.events.push({ name: name, t: t, data: data || {} });
+    if (window.__mmMetrics.events.length > 200) window.__mmMetrics.events.shift();
+    try { localStorage.setItem('mm_metrics_last', JSON.stringify(window.__mmMetrics)); } catch(e) {}
+  } catch (e) { /* ignore */ }
+}
+
+function mmReport() {
+  try {
+    const m = window.__mmMetrics || {};
+    const ev = m.events || [];
+    function first(name) { return ev.find(function (x) { return x.name === name; }); }
+    function last(name) { for (let i = ev.length - 1; i >= 0; i--) if (ev[i].name === name) return ev[i]; return null; }
+    const load = first('page_load');
+    const enter = first('enter_chat');
+    const firstSend = first('chat_send');
+    const firstOk = first('chat_reply_ok');
+    const o = {
+      loaded: !!load,
+      enteredChat: !!enter,
+      firstSend: !!firstSend,
+      firstReplyOk: !!firstOk,
+      msToEnterChat: (load && enter) ? Math.round(enter.t - load.t) : null,
+      msToFirstSend: (load && firstSend) ? Math.round(firstSend.t - load.t) : null,
+      msToFirstReply: (load && firstOk) ? Math.round(firstOk.t - load.t) : null,
+      lastError: (last('chat_reply_fail') || last('build_fail') || last('session_create_fail') || last('primary_cta_blocked')) || null,
+      totalEvents: ev.length
+    };
+    return o;
+  } catch (e) { return { error: String(e.message || e) }; }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  track('page_load', { path: location.pathname });
+  const a = document.getElementById('prompt-a');
+  const b = document.getElementById('prompt-b');
+  if (a) a.value = PROMPT_A_SNIPPETS_TO_ARCHIVE;
+  if (b) b.value = PROMPT_B_ARCHIVE_TO_ROLEPLAY;
+  loadVolcTtsClientCreds();
+  wireVolcTtsClientOnce();
+  wireLandingTabs();
+  wireReadyInputs();
+  setIntent('quick');
+  updateReadyUi();
+  updatePrimaryCta();
+});
+
+/** 服务端会话模式：扮演指令只在服务器内存，页面不展示 */
+let SERVER_MODE = false;
+/** 与 Cookie 二选一：生成完成时由接口返回，用于 Cookie 被浏览器拒绝时的会话兜底 */
+let SERVER_SESSION_ID = '';
+let API_KEY = '';
+let DISPLAY_NAME = '';
+let RULES = '';
+const MEMORY_DB = [];
+const DIALOGUE_HISTORY = [];
+
+/** 进入主聊天：隐藏首屏双栏、写入会话状态 */
+function enterMainChat(characterName, sessionId, rulesForMemory) {
+  track('enter_chat', { characterName: characterName || '' });
+  SERVER_MODE = true;
+  SERVER_SESSION_ID = (sessionId && String(sessionId).trim()) || '';
+  DISPLAY_NAME = characterName || '';
+  if (rulesForMemory !== undefined && rulesForMemory !== null) {
+    RULES = rulesForMemory;
+  }
+  API_KEY = '';
+
+  const pasteBtn = document.getElementById('paste-btn');
+  const quickBtn = document.getElementById('quick-btn');
+  const snippetsBtn = document.getElementById('snippets-btn');
+  const buildBtn = document.getElementById('build-oneclick-btn');
+  if (pasteBtn) {
+    pasteBtn.removeAttribute('aria-busy');
+    pasteBtn.disabled = false;
+  }
+  if (quickBtn) {
+    quickBtn.removeAttribute('aria-busy');
+    quickBtn.disabled = false;
+  }
+  if (snippetsBtn) {
+    snippetsBtn.removeAttribute('aria-busy');
+    snippetsBtn.disabled = false;
+  }
+  if (buildBtn) {
+    buildBtn.removeAttribute('aria-busy');
+    buildBtn.disabled = false;
+  }
+
+  document.getElementById('landing').style.display = 'none';
+  document.getElementById('main').classList.add('visible');
+  document.getElementById('info-bar').textContent = '角色：' + DISPLAY_NAME + '（扮演指令已由服务端持有，页面不展示）';
+  DIALOGUE_HISTORY.length = 0;
+  MEMORY_DB.length = 0;
+  renderMemories();
+  loadVolcTtsClientCreds();
+  wireVolcTtsClientOnce();
+  document.getElementById('msg-input').focus();
+}
+
+function _filenameFromContentDisposition(cd) {
+  if (!cd) return null;
+  let m = /filename\*=UTF-8''([^;\n]+)/i.exec(cd);
+  if (m) try { return decodeURIComponent(m[1].trim()); } catch (e) { /* ignore */ }
+  m = /filename="([^"]+)"/i.exec(cd);
+  if (m) return m[1];
+  return null;
+}
+
+/**
+ * @param {string} pastedText 扮演指令全文
+ * @param {{ busyButton?: HTMLElement, statusElement?: HTMLElement|null, omitRules?: boolean, characterName?: string }} options omitRules：生成流程已在服务端并入规则时，避免 /paste 再追加一遍；characterName：一键生成完成时传入左栏人物名（优先于中栏输入框）
+ */
+async function createSessionFromPrompt(pastedText, options) {
+  options = options || {};
+  const key = document.getElementById('api-key').value.trim();
+  var name;
+  if (options.characterName != null && String(options.characterName).trim() !== '') {
+    name = String(options.characterName).trim();
+  } else {
+    var pasteEl = document.getElementById('paste-character-name');
+    var simpleEl = document.getElementById('character-name');
+    var pasteN = pasteEl ? (pasteEl.value || '').trim() : '';
+    var simpleN = simpleEl ? (simpleEl.value || '').trim() : '';
+    name = pasteN || simpleN;
+  }
+  const rulesForMemory = document.getElementById('rules-input').value.trim();
+  const rulesForServer = options.omitRules ? '' : rulesForMemory;
+  const busyBtn = options.busyButton;
+  const statusEl = options.statusElement !== undefined ? options.statusElement : document.getElementById('paste-status');
+  const pasted = pastedText != null ? String(pastedText).trim() : '';
+
+  if (!key) { alert('请在页面顶部填写 API Key'); return false; }
+  if (!name) { alert('请输入人物名称（本栏「人物名称」或「一键生成」里填写均可）'); return false; }
+  if (pasted.length < 20) { alert('扮演指令过短（至少约 20 字）'); return false; }
+  if (location.protocol === 'file:') {
+    alert('请通过本站 http(s) 地址打开本页。');
+    return false;
+  }
+
+  if (busyBtn) {
+    busyBtn.disabled = true;
+    busyBtn.setAttribute('aria-busy', 'true');
+  }
+  if (statusEl) statusEl.textContent = '正在创建会话…';
+  track('session_create_submit', { len: pasted.length, hasRules: !!rulesForServer });
+
+  try {
+    const fd = new FormData();
+    fd.append('api_key', key);
+    fd.append('character_name', name);
+    fd.append('pasted_system', pasted);
+    fd.append('chat_rules', rulesForServer);
+    const r = await fetch('/api/session/paste', { method: 'POST', body: fd, credentials: 'include' });
+    const raw = await r.text();
+    let data = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch (parseErr) {
+      alert('服务器返回不是合法 JSON。请确认用 uvicorn server.main:app 启动当前站点。');
+      return false;
+    }
+    if (!r.ok) {
+      if (r.status === 404) {
+        alert('404：未找到 /api/session/paste。请使用最新代码启动：uvicorn server.main:app');
+        return false;
+      }
+      const d = data.detail;
+      const msg = typeof d === 'string' ? d : Array.isArray(d) ? d.map(function (x) { return x.msg || JSON.stringify(x); }).join('；') : (r.statusText || '创建失败');
+      alert(msg);
+      track('session_create_fail', { status: r.status, message: msg });
+      return false;
+    }
+    enterMainChat(data.character_name || name, data.session_id, rulesForMemory);
+    track('session_create_ok', { characterName: data.character_name || name });
+    return true;
+  } catch (e) {
+    alert(String(e.message || e));
+    track('session_create_fail', { status: 0, message: String(e.message || e) });
+    return false;
+  } finally {
+    if (busyBtn) {
+      busyBtn.disabled = false;
+      busyBtn.removeAttribute('aria-busy');
+    }
+    if (statusEl) statusEl.textContent = '';
+  }
+}
+
+async function runFullBuildAndChat() {
+  const fileEl = document.getElementById('novel-file');
+  const name = document.getElementById('character-name').value.trim();
+  const aliases = document.getElementById('aliases-input').value.trim();
+  const key = document.getElementById('api-key').value.trim();
+  const rules = document.getElementById('rules-input').value.trim();
+  const btn = document.getElementById('build-oneclick-btn');
+  const prog = document.getElementById('build-progress');
+  const line = document.getElementById('build-status-line');
+
+  if (!fileEl.files || !fileEl.files.length) { alert('请上传小说 txt'); return; }
+  if (!name) { alert('请输入人物名称'); return; }
+  if (!key) { alert('请输入 API Key'); return; }
+  if (location.protocol === 'file:') {
+    alert('请通过本站 http(s) 地址打开本页。');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.setAttribute('aria-busy', 'true');
+  prog.value = 0;
+  setBuildStageByPercent(0);
+  line.textContent = '正在提交任务…';
+  track('build_submit', { hasAliases: !!aliases });
+
+  try {
+    const fd = new FormData();
+    fd.append('novel', fileEl.files[0]);
+    fd.append('character_name', name);
+    fd.append('aliases_text', aliases);
+    fd.append('api_key', key);
+    fd.append('chat_rules', rules);
+    const r = await fetch('/api/novel/build', { method: 'POST', body: fd });
+    if (!r.ok) {
+      let msg = r.statusText || '提交失败';
+      try {
+        const err = await r.json();
+        const d = err.detail;
+        msg = typeof d === 'string' ? d : msg;
+      } catch (e) { /* ignore */ }
+      alert(msg);
+      track('build_fail', { stage: 'submit', message: msg, status: r.status });
+      return;
+    }
+    const sub = await r.json();
+    const jobId = sub.job_id;
+    if (!jobId) { alert('未返回任务编号'); return; }
+
+    var st = null;
+    for (;;) {
+      await new Promise(function (res) { setTimeout(res, 1200); });
+      const gr = await fetch('/api/novel/build/' + jobId);
+      st = await gr.json();
+      if (!gr.ok) {
+        var d0 = st.detail;
+        var msg0 = typeof d0 === 'string' ? d0 : '查询进度失败';
+        alert(msg0);
+        track('build_fail', { stage: 'poll', message: msg0, status: gr.status });
+        return;
+      }
+      line.textContent = st.message || '';
+      if (typeof st.percent === 'number') {
+        prog.value = st.percent;
+        setBuildStageByPercent(st.percent);
+      }
+      if (st.done) break;
+    }
+
+    if (st.error) {
+      alert(st.error);
+      track('build_fail', { stage: 'done', message: st.error });
+      return;
+    }
+    var sys = st.system_prompt;
+    if (!sys || !String(sys).trim()) {
+      alert('未返回扮演指令');
+      track('build_fail', { stage: 'done', message: 'no_system_prompt' });
+      return;
+    }
+    line.textContent = '生成完成，正在创建会话…';
+    prog.value = 100;
+    setBuildStageByPercent(100);
+    await createSessionFromPrompt(sys, { busyButton: btn, statusElement: line, omitRules: true, characterName: name });
+  } catch (e) {
+    alert(String(e.message || e));
+  } finally {
+    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
+  }
+}
+
+async function downloadSnippetsFile() {
+  const fileEl = document.getElementById('novel-file');
+  const name = document.getElementById('character-name').value.trim();
+  const aliases = document.getElementById('aliases-input').value.trim();
+  const btn = document.getElementById('snippets-btn');
+  const statusEl = document.getElementById('snippet-status');
+  if (!fileEl.files || !fileEl.files.length) { alert('请上传小说 txt'); return; }
+  if (!name) { alert('请输入人物名称'); return; }
+  if (location.protocol === 'file:') {
+    alert('请通过本站 http(s) 地址打开本页。');
+    return;
+  }
+  btn.disabled = true;
+  btn.setAttribute('aria-busy', 'true');
+  statusEl.textContent = '正在抽取片段（本地处理，无 API 归纳）…';
+  try {
+    const fd = new FormData();
+    fd.append('novel', fileEl.files[0]);
+    fd.append('character_name', name);
+    fd.append('aliases_text', aliases);
+    const r = await fetch('/api/novel/snippets-file', { method: 'POST', body: fd });
+    if (!r.ok) {
+      if (r.status === 404) {
+        alert('接口未找到（404）。请确认已在项目根目录用最新代码重启后端：uvicorn server.main:app --reload --host 127.0.0.1 --port 8000');
+        return;
+      }
+      let msg = r.statusText || '生成失败';
+      try {
+        const err = await r.json();
+        const d = err.detail;
+        msg = typeof d === 'string' ? d : Array.isArray(d) ? d.map(x => x.msg || JSON.stringify(x)).join('；') : msg;
+      } catch (e) { /* ignore */ }
+      alert(msg);
+      return;
+    }
+    const blob = await r.blob();
+    const fname = _filenameFromContentDisposition(r.headers.get('Content-Disposition')) || ('角色片段-' + name + '.md');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fname;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    statusEl.textContent = '已下载：' + fname + '。请到 DeepSeek 网页版上传该文件并继续技能链。';
+  } catch (e) {
+    alert(String(e.message || e));
+    statusEl.textContent = '';
+  } finally {
+    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
+  }
+}
+
+async function startPasteSession() {
+  const pasted = document.getElementById('pasted-system').value.trim();
+  const pasteBtn = document.getElementById('paste-btn');
+  const statusEl = document.getElementById('paste-status');
+
+  if (!pasted) {
+    alert('请先从 DeepSeek 网页版生成扮演指令，并粘贴到「从网页版得到的扮演指令」文本框');
+    return;
+  }
+  if (location.protocol === 'file:') {
+    alert('请通过本站 http(s) 地址打开本页，不要双击本地 HTML。');
+    return;
+  }
+
+  await createSessionFromPrompt(pasted, { busyButton: pasteBtn, statusElement: statusEl });
+}
+
+async function startQuickPavel() {
+  const key = document.getElementById('api-key').value.trim();
+  if (!key) { alert('请先在页面顶部填写 DeepSeek API Key'); return; }
+  if (location.protocol === 'file:') {
+    alert('请通过浏览器访问运行中的站点地址（例如 http://127.0.0.1:8000/ ）打开本页，不要双击本地 HTML 文件。');
+    return;
+  }
+  const quickBtn = document.getElementById('quick-btn');
+  const statusEl = document.getElementById('quick-status');
+  quickBtn.disabled = true;
+  quickBtn.setAttribute('aria-busy', 'true');
+  statusEl.textContent = '正在创建会话…';
+  try {
+    const fd = new FormData();
+    fd.append('api_key', key);
+    fd.append('preset', 'pavel');
+    const r = await fetch('/api/session/quick', { method: 'POST', body: fd, credentials: 'include' });
+    const raw = await r.text();
+    let data = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch (parseErr) {
+      alert('服务器返回的不是合法 JSON。若状态为 404，说明当前端口上不是本项目的 FastAPI（请用 uvicorn server.main:app 启动）。');
+      return;
+    }
+    if (!r.ok) {
+      if (r.status === 404) {
+        alert('404：未找到 /api/session/quick。请在本仓库根目录执行：uvicorn server.main:app --host 127.0.0.1 --port 8000\n不要用 python -m http.server 只起静态页；重启服务后再试。');
+        return;
+      }
+      const d = data.detail;
+      const msg = typeof d === 'string' ? d : Array.isArray(d) ? d.map(x => x.msg || JSON.stringify(x)).join('；') : (r.statusText || '创建失败');
+      alert(msg);
+      return;
+    }
+    enterMainChat(data.character_name, data.session_id, '');
+  } catch (e) {
+    alert(String(e.message || e));
+  } finally {
+    quickBtn.disabled = false;
+    quickBtn.removeAttribute('aria-busy');
+    statusEl.textContent = '';
+  }
+}
+
+function setStatus(t) { document.getElementById('status').textContent = t; }
+
+var VOLC_LS_APP = 'qinrenskill_volc_app_id';
+var VOLC_LS_TOKEN = 'qinrenskill_volc_access_token';
+var VOLC_LS_VOICE = 'qinrenskill_volc_voice_type';
+var VOLC_LS_CLUSTER = 'qinrenskill_volc_cluster';
+
+function loadVolcTtsClientCreds() {
+  try {
+    var appEl = document.getElementById('volc-tts-app-id');
+    var tokEl = document.getElementById('volc-tts-access-token');
+    var vtEl = document.getElementById('volc-tts-voice-type');
+    var clEl = document.getElementById('volc-tts-cluster');
+    if (appEl) appEl.value = localStorage.getItem(VOLC_LS_APP) || '';
+    if (tokEl) tokEl.value = localStorage.getItem(VOLC_LS_TOKEN) || '';
+    if (vtEl) vtEl.value = localStorage.getItem(VOLC_LS_VOICE) || '';
+    if (clEl) clEl.value = localStorage.getItem(VOLC_LS_CLUSTER) || '';
+    var det = document.getElementById('volc-tts-details');
+    if (det && (localStorage.getItem(VOLC_LS_APP) || localStorage.getItem(VOLC_LS_TOKEN))) {
+      det.open = true;
+    }
+  } catch (e) { /* 私密模式等 */ }
+}
+
+function saveVolcTtsClientCreds() {
+  try {
+    var appEl = document.getElementById('volc-tts-app-id');
+    var tokEl = document.getElementById('volc-tts-access-token');
+    var vtEl = document.getElementById('volc-tts-voice-type');
+    var clEl = document.getElementById('volc-tts-cluster');
+    if (appEl) localStorage.setItem(VOLC_LS_APP, appEl.value.trim());
+    if (tokEl) localStorage.setItem(VOLC_LS_TOKEN, tokEl.value.trim());
+    if (vtEl) localStorage.setItem(VOLC_LS_VOICE, vtEl.value.trim());
+    if (clEl) localStorage.setItem(VOLC_LS_CLUSTER, clEl.value.trim());
+  } catch (e) { /* ignore */ }
+}
+
+function wireVolcTtsClientOnce() {
+  var appEl = document.getElementById('volc-tts-app-id');
+  var tokEl = document.getElementById('volc-tts-access-token');
+  var vtEl = document.getElementById('volc-tts-voice-type');
+  var clEl = document.getElementById('volc-tts-cluster');
+  if (!appEl || !tokEl || appEl._volcWired) return;
+  appEl._volcWired = true;
+  function save() { saveVolcTtsClientCreds(); }
+  appEl.addEventListener('change', save);
+  tokEl.addEventListener('change', save);
+  if (vtEl) vtEl.addEventListener('change', save);
+  if (clEl) clEl.addEventListener('change', save);
+  appEl.addEventListener('blur', save);
+  tokEl.addEventListener('blur', save);
+  if (vtEl) vtEl.addEventListener('blur', save);
+  if (clEl) clEl.addEventListener('blur', save);
+}
+
+function sanitizeVolcClusterForRequest(raw) {
+  var t = (raw || '').trim();
+  if (!t) return '';
+  for (var i = 0; i < t.length; i++) {
+    var c = t.charCodeAt(i);
+    if (c >= 0x4e00 && c <= 0x9fff) return '';
+  }
+  if (/默认|一般|不需要|placeholder/i.test(t)) return '';
+  return t;
+}
+
+function buildVolcTtsRequestBody(ttsText) {
+  var o = { text: ttsText };
+  var appEl = document.getElementById('volc-tts-app-id');
+  var tokEl = document.getElementById('volc-tts-access-token');
+  var vtEl = document.getElementById('volc-tts-voice-type');
+  var clEl = document.getElementById('volc-tts-cluster');
+  var app = appEl ? appEl.value.trim() : '';
+  var tok = tokEl ? tokEl.value.trim() : '';
+  var vt = vtEl ? vtEl.value.trim() : '';
+  var cl = clEl ? sanitizeVolcClusterForRequest(clEl.value) : '';
+  if (app) o.volc_app_id = app;
+  if (tok) o.volc_access_token = tok;
+  if (vt) o.volc_voice_type = vt;
+  if (cl) o.volc_cluster = cl;
+  return o;
+}
+
+function revokeMsgTtsBlob(msgEl) {
+  const prev = msgEl._ttsObjectUrl;
+  if (prev) {
+    URL.revokeObjectURL(prev);
+    msgEl._ttsObjectUrl = null;
+  }
+}
+
+/** 朗读用：去掉半角/全角圆括号及其内舞台说明，不改动【】与 * 等 */
+function stripParenDirectionsForTts(raw) {
+  if (raw == null) return '';
+  var s = String(raw);
+  s = s.replace(/\([^)]*\)/g, '');
+  s = s.replace(/（[^）]*）/g, '');
+  s = s.replace(/[\s\u00a0]+/g, ' ').trim();
+  return s;
+}
+
+async function attachVolcTtsToMsg(msgEl, ttsText, autoplay) {
+  const statusEl = msgEl.querySelector('.msg-tts-status');
+  const audioEl = msgEl.querySelector('.msg-tts-audio');
+  const btn = msgEl.querySelector('.msg-tts-btn');
+  if (!statusEl || !audioEl || !btn) return;
+  const t = ttsText != null ? String(ttsText).trim() : '';
+  if (!t) {
+    statusEl.textContent = '无圆括号外对白可朗读';
+    return;
+  }
+
+  if (msgEl._ttsObjectUrl && audioEl.src) {
+    if (autoplay) {
+      try {
+        await audioEl.play();
+      } catch (_) {
+        statusEl.textContent = '请点击播放器播放';
+      }
+    }
+    return;
+  }
+
+  if (msgEl._ttsLoading) return;
+  msgEl._ttsLoading = true;
+  btn.disabled = true;
+  statusEl.textContent = '生成语音中…';
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (SERVER_SESSION_ID) headers['Authorization'] = 'Bearer ' + SERVER_SESSION_ID;
+    const r = await fetch('/api/tts/volc', {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: JSON.stringify(buildVolcTtsRequestBody(t))
+    });
+    if (!r.ok) {
+      let msg = r.statusText || '朗读失败';
+      try {
+        const j = await r.json();
+        const d = j.detail;
+        if (typeof d === 'string') msg = d;
+      } catch (_) {}
+      throw new Error(msg);
+    }
+    const blob = await r.blob();
+    revokeMsgTtsBlob(msgEl);
+    const u = URL.createObjectURL(blob);
+    msgEl._ttsObjectUrl = u;
+    audioEl.src = u;
+    audioEl.style.display = '';
+    statusEl.textContent = '';
+    if (autoplay) {
+      try {
+        await audioEl.play();
+      } catch (_) {
+        statusEl.textContent = '已生成，请点击播放器播放';
+      }
+    }
+  } catch (e) {
+    statusEl.textContent = '朗读失败：' + (e.message || String(e));
+    console.warn('TTS', e);
+  } finally {
+    msgEl._ttsLoading = false;
+    btn.disabled = false;
+  }
+}
+
+function addMsg(role, text) {
+  const msgs = document.getElementById('msgs');
+  const el = document.createElement('div');
+  el.className = 'msg ' + role;
+  if (role === 'ai' && SERVER_MODE) {
+    el.classList.add('tts-enabled');
+    el._ttsSpokenText = stripParenDirectionsForTts(text);
+    const textEl = document.createElement('div');
+    textEl.className = 'msg-ai-text';
+    textEl.textContent = text;
+    const bar = document.createElement('div');
+    bar.className = 'msg-tts-bar';
+    const hint = document.createElement('p');
+    hint.className = 'msg-tts-hint';
+    hint.textContent = '朗读使用去掉圆括号内舞台说明后的对白；气泡内仍为全文。';
+    const status = document.createElement('span');
+    status.className = 'msg-tts-status';
+    const audio = document.createElement('audio');
+    audio.className = 'msg-tts-audio';
+    audio.setAttribute('controls', '');
+    audio.setAttribute('preload', 'metadata');
+    audio.style.display = 'none';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'msg-tts-btn';
+    btn.textContent = '朗读本条';
+    btn.onclick = function () {
+      attachVolcTtsToMsg(el, el._ttsSpokenText, true);
+    };
+    bar.appendChild(hint);
+    bar.appendChild(status);
+    bar.appendChild(audio);
+    bar.appendChild(btn);
+    el.appendChild(textEl);
+    el.appendChild(bar);
+    LAST_ASSISTANT_MSG_EL = el;
+  } else {
+    el.textContent = text;
+    if (role === 'ai') LAST_ASSISTANT_MSG_EL = el;
+  }
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+  return el;
+}
+
+let LAST_ASSISTANT_MSG_EL = null;
+function getLastAssistantMsgEl() {
+  if (LAST_ASSISTANT_MSG_EL && document.body.contains(LAST_ASSISTANT_MSG_EL)) return LAST_ASSISTANT_MSG_EL;
+  const msgs = document.getElementById('msgs');
+  if (!msgs) return null;
+  const xs = msgs.querySelectorAll('.msg.ai');
+  if (!xs || !xs.length) return null;
+  return xs[xs.length - 1];
+}
+
+function attachVideoToAssistantMsg(msgEl, videoUrl, meta) {
+  if (!msgEl || !videoUrl) return false;
+  const u = String(videoUrl).trim();
+  if (!u) return false;
+
+  const prev = msgEl.querySelector('.msg-video-card');
+  if (prev) prev.remove();
+
+  const card = document.createElement('div');
+  card.className = 'msg-video-card';
+
+  const metaEl = document.createElement('div');
+  metaEl.className = 'msg-video-meta';
+  const job = meta && meta.jobId ? String(meta.jobId) : '';
+  metaEl.textContent = job ? ('数字人视频 · job ' + job) : '数字人视频';
+
+  const thumb = document.createElement('div');
+  thumb.className = 'msg-video-thumb';
+  const inner = document.createElement('div');
+  inner.className = 'msg-video-thumb-inner';
+
+  const title = document.createElement('div');
+  title.textContent = '视频已生成';
+  title.style.fontSize = '13px';
+  title.style.fontWeight = '600';
+
+  const sub = document.createElement('div');
+  sub.textContent = '点击播放（链接约 24 小时有效，建议尽快下载保存）';
+  sub.style.fontSize = '12px';
+  sub.style.color = 'var(--text2)';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'msg-video-play';
+  btn.textContent = '播放视频';
+  btn.onclick = function () {
+    const player = document.createElement('video');
+    player.className = 'msg-video-player';
+    player.setAttribute('controls', '');
+    player.setAttribute('playsinline', '');
+    player.src = u;
+    card.replaceChildren(player, metaEl);
+    try { player.play(); } catch (_) {}
+    try { track('wan_s2v_play', { url: u }); } catch(e) {}
+  };
+
+  inner.appendChild(title);
+  inner.appendChild(sub);
+  inner.appendChild(btn);
+  thumb.appendChild(inner);
+
+  card.appendChild(thumb);
+  card.appendChild(metaEl);
+
+  msgEl.appendChild(card);
+  const msgs = document.getElementById('msgs');
+  if (msgs) msgs.scrollTop = msgs.scrollHeight;
+  return true;
+}
+
+function attachVideoToLastAssistantMsg(videoUrl, meta) {
+  const msgEl = getLastAssistantMsgEl();
+  if (!msgEl) {
+    addMsg('system', '视频已生成：' + String(videoUrl || ''));
+    return false;
+  }
+  return attachVideoToAssistantMsg(msgEl, videoUrl, meta);
+}
+
+function addThinking() {
+  const msgs = document.getElementById('msgs');
+  const el = document.createElement('div');
+  el.className = 'thinking';
+  el.innerHTML = '<span></span><span></span><span></span>';
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+  return el;
+}
+
+/** 仅用于 HTML 文本节点；防记忆内容 / 模型返回中的 XSS */
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** class 名必须白名单，禁止把 category 原样拼进 attribute（避免引号逃逸） */
+function memCategoryClass(cat) {
+  var c = String(cat || '').trim();
+  if (c === '事实' || c === 'fact') return 'fact';
+  if (c === '情绪' || c === 'emotion') return 'emotion';
+  if (c === '习惯' || c === 'habit') return 'habit';
+  if (c === '关系' || c === 'relation') return 'relation';
+  return 'fact';
+}
+
+function renderMemories() {
+  const active = MEMORY_DB.filter(m => m.status === 'active');
+  document.getElementById('mem-count').textContent = active.length + ' 条';
+  const list = document.getElementById('mem-list');
+  if (!active.length) { list.innerHTML = '<div class="empty">暂无记忆</div>'; return; }
+  list.innerHTML = active.slice().reverse().map(m => `
+    <div class="mem-item ${memCategoryClass(m.category)}">
+      <div class="mem-dot"></div>
+      <div>${escapeHtml(m.content)}</div>
+    </div>`).join('');
+}
+
+function renderRetrieved(mems) {
+  const list = document.getElementById('retrieved-list');
+  if (!mems || !mems.length) { list.innerHTML = '<div class="empty">—</div>'; return; }
+  list.innerHTML = mems.map(m => `
+    <div class="mem-item ${memCategoryClass(m.category)}">
+      <div class="mem-dot"></div>
+      <div>${escapeHtml(m.content)}</div>
+    </div>`).join('');
+}
+
+function retrieveMemories(userText) {
+  const active = MEMORY_DB.filter(m => m.status === 'active');
+  if (!active.length) return [];
+  const words = userText.replace(/[，。！？,.!?\s]/g, '').split('');
+  const scored = active.map(m => {
+    let score = 0;
+    words.forEach(w => { if (w && m.content.includes(w)) score++; });
+    const ageDays = (Date.now() - m.created_at) / (1000 * 60 * 60 * 24);
+    const decay = ageDays < 1 ? 1 : ageDays < 7 ? 0.9 : ageDays < 30 ? 0.7 : 0.5;
+    return { ...m, score: score * decay * (m.importance || 0.5) };
+  });
+  return scored.sort((a, b) => b.score - a.score).slice(0, 3).filter(m => m.score > 0);
+}
+
+async function callClaude(system, messages) {
+  const resp = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + API_KEY
+    },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      max_tokens: 1000,
+      messages: [{ role: 'system', content: system }, ...messages]
+    })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || resp.statusText);
+  }
+  const data = await resp.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+
+async function extractMemories(dialogue) {
+  const prompt = `从以下对话中提炼用户相关的关键信息。
+只提炼用户明确说出的事实、情绪、习惯、关系。
+每条一句话不超过20字。
+严格返回JSON数组，格式：[{"content":"...","category":"事实|情绪|习惯|关系","importance":0.5}]
+如果没有值得记录的信息，返回空数组[]。
+只输出JSON，不要任何其他文字。
+
+对话：
+${dialogue}`;
+  const raw = await callClaude('你是记忆提炼助手，只输出JSON数组。', [{ role: 'user', content: prompt }]);
+  try {
+    return JSON.parse(raw.replace(/```json|```/g, '').trim()) || [];
+  } catch (e) { return []; }
+}
+
+async function checkConflicts(newMem) {
+  const sameCategory = MEMORY_DB.filter(m => m.status === 'active' && m.category === newMem.category);
+  if (!sameCategory.length) return [];
+  const prompt = `新记忆：${newMem.content}
+同类已有记忆：
+${sameCategory.map(m => `[${m.id}] ${m.content}`).join('\n')}
+
+判断新记忆是否与已有记忆冲突或重复。
+返回需要标记过期的记忆id数组，如["abc","def"]。无冲突返回[]。只输出JSON。`;
+  const raw = await callClaude('你是冲突检测助手，只输出JSON数组。', [{ role: 'user', content: prompt }]);
+  try {
+    return JSON.parse(raw.replace(/```json|```/g, '').trim()) || [];
+  } catch (e) { return []; }
+}
+
+async function sendMsg() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text) return;
+  if (!SERVER_MODE && !API_KEY) return;
+  track('chat_send', { len: text.length, serverMode: !!SERVER_MODE });
+
+  const btn = document.getElementById('send-btn');
+
+  input.value = '';
+  btn.disabled = true;
+  addMsg('user', text);
+  DIALOGUE_HISTORY.push({ role: 'user', content: text });
+
+  const retrieved = SERVER_MODE ? [] : retrieveMemories(text);
+  renderRetrieved(retrieved);
+
+  const thinking = addThinking();
+  setStatus('思考中...');
+
+  try {
+    let reply = '';
+    if (SERVER_MODE) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (SERVER_SESSION_ID) headers['Authorization'] = 'Bearer ' + SERVER_SESSION_ID;
+      const r = await fetch('/api/chat', {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({ text })
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const d = data.detail;
+        let msg = typeof d === 'string' ? d : Array.isArray(d) ? d.map(x => x.msg || JSON.stringify(x)).join('；') : (r.statusText || '对话失败');
+        if (r.status === 401 && msg.indexOf('无会话') !== -1) {
+          msg += ' 可尝试重新粘贴扮演指令或快速体验；HTTPS 站点请勿误开 COOKIE_SECURE=0 以外的错误组合。';
+        }
+        throw new Error(msg);
+      }
+      reply = data.reply || '';
+    } else {
+      const memCtx = retrieved.length
+        ? '\n你对用户的了解：\n' + retrieved.map(m => '- ' + m.content).join('\n')
+        : '';
+      const system = `你是：${DISPLAY_NAME}${memCtx}\n\n规则（必须遵守）：\n${RULES || '（未填写规则）'}`;
+      reply = await callClaude(system, DIALOGUE_HISTORY);
+    }
+
+    thinking.remove();
+    const aiBubble = addMsg('ai', reply);
+    DIALOGUE_HISTORY.push({ role: 'assistant', content: reply });
+    track('chat_reply_ok', { len: (reply || '').length, serverMode: !!SERVER_MODE });
+
+    if (SERVER_MODE && reply && aiBubble.classList.contains('tts-enabled')) {
+      const ttsCb = document.getElementById('tts-speak-checkbox');
+      if (ttsCb && ttsCb.checked) {
+        attachVolcTtsToMsg(aiBubble, aiBubble._ttsSpokenText, true);
+      }
+    }
+
+    if (!SERVER_MODE && API_KEY) {
+      setStatus('提炼记忆中...');
+      const recent = DIALOGUE_HISTORY.slice(-4).map(m => `${m.role === 'user' ? '用户' : '角色'}：${m.content}`).join('\n');
+      const newMems = await extractMemories(recent);
+      for (const m of newMems) {
+        const ids = await checkConflicts(m);
+        ids.forEach(id => {
+          const old = MEMORY_DB.find(x => x.id === id);
+          if (old) old.status = 'outdated';
+        });
+        MEMORY_DB.push({
+          id: Math.random().toString(36).slice(2, 8),
+          content: m.content,
+          category: m.category || '事实',
+          importance: m.importance || 0.5,
+          status: 'active',
+          created_at: Date.now()
+        });
+      }
+      renderMemories();
+      const tip = newMems.length ? `已存入 ${newMems.length} 条新记忆` : '';
+      setStatus(tip);
+      setTimeout(() => setStatus(''), 2500);
+    } else {
+      setStatus('（服务端模式：记忆栏暂不自动提炼，避免在浏览器使用 Key）');
+      setTimeout(() => setStatus(''), 3000);
+    }
+
+  } catch (e) {
+    thinking.remove();
+    DIALOGUE_HISTORY.pop();
+    addMsg('system', '请求失败：' + e.message);
+    setStatus('');
+    track('chat_reply_fail', { message: String(e.message || e), serverMode: !!SERVER_MODE });
+  }
+
+  btn.disabled = false;
+  input.focus();
+}
+
+function _wanS2vDetailMessage(data) {
+  const d = data && data.detail;
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d)) return d.map(x => (x.msg || JSON.stringify(x))).join('；');
+  return data && data.message ? String(data.message) : '请求失败';
+}
+
+async function pollWanS2vJob(jobId) {
+  const stEl = document.getElementById('wan-s2v-status');
+  const vid = document.getElementById('wan-s2v-video');
+  const maxRounds = 200;
+  for (let i = 0; i < maxRounds; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    const r = await fetch('/api/mvp/wan-s2v/job/' + encodeURIComponent(jobId), { credentials: 'include' });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      stEl.textContent = _wanS2vDetailMessage(data);
+      return;
+    }
+    if (data.status === 'succeeded' && data.video_url) {
+      const ok = attachVideoToLastAssistantMsg(data.video_url, { jobId });
+      if (vid) {
+        vid.src = data.video_url;
+        vid.style.display = ok ? 'none' : 'block';
+      }
+      stEl.textContent = '完成：已插入到上一条助手回复下方。';
+      try { track('wan_s2v_ok', { jobId: jobId, inChat: !!ok }); } catch(e) {}
+      return;
+    }
+    if (data.status === 'failed') {
+      stEl.textContent = '失败：' + (data.error || data.message || '未知错误');
+      try { track('wan_s2v_fail', { jobId: jobId, message: String(data.error || data.message || '') }); } catch(e) {}
+      return;
+    }
+    stEl.textContent = data.message || data.status || '处理中…';
+  }
+  stEl.textContent = '轮询超时：任务可能仍在云端排队，请稍后在阿里云百炼控制台查看。';
+}
+
+async function submitWanS2vMvp() {
+  const stEl = document.getElementById('wan-s2v-status');
+  const btn = document.getElementById('wan-s2v-submit');
+  const vid = document.getElementById('wan-s2v-video');
+  if (!SERVER_MODE) {
+    stEl.textContent = '当前为本地 file 模式，无法调用本站数字人接口；请通过 uvicorn 打开本站页面。';
+    return;
+  }
+  const fileInput = document.getElementById('wan-s2v-image');
+  if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+    stEl.textContent = '请选择肖像图。';
+    return;
+  }
+  const spoken = (document.getElementById('wan-s2v-spoken') || {}).value || '';
+  const llmPrompt = (document.getElementById('wan-s2v-llm-prompt') || {}).value || '';
+  const useLastEl = document.getElementById('wan-s2v-use-last-reply');
+  const useLast = useLastEl ? useLastEl.checked : true;
+  if (!spoken.trim() && !llmPrompt.trim() && !useLast) {
+    stEl.textContent = '请勾选「使用上一轮助手回复」，或填写手写口播 / AI 生成提示。';
+    return;
+  }
+  const fd = new FormData();
+  fd.append('image', fileInput.files[0]);
+  fd.append('spoken_text', spoken.trim());
+  fd.append('llm_prompt', llmPrompt.trim());
+  fd.append('use_last_assistant_reply', useLast ? '1' : '0');
+  fd.append('resolution', (document.getElementById('wan-s2v-resolution') || {}).value || '480P');
+  const vApp = document.getElementById('volc-tts-app-id');
+  const vTok = document.getElementById('volc-tts-access-token');
+  const vVt = document.getElementById('volc-tts-voice-type');
+  const vCl = document.getElementById('volc-tts-cluster');
+  if (vApp && vApp.value.trim()) fd.append('volc_app_id', vApp.value.trim());
+  if (vTok && vTok.value.trim()) fd.append('volc_access_token', vTok.value.trim());
+  if (vVt && vVt.value.trim()) fd.append('volc_voice_type', vVt.value.trim());
+  if (vCl && vCl.value.trim()) fd.append('volc_cluster', vCl.value.trim());
+  btn.disabled = true;
+  vid.style.display = 'none';
+  vid.removeAttribute('src');
+  stEl.textContent = '提交中…';
+  try {
+    const r = await fetch('/api/mvp/wan-s2v/start', { method: 'POST', body: fd, credentials: 'include' });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      stEl.textContent = _wanS2vDetailMessage(data);
+      try { track('wan_s2v_start_fail', { message: stEl.textContent || '' }); } catch(e) {}
+      return;
+    }
+    if (!data.job_id) {
+      stEl.textContent = '未返回 job_id';
+      return;
+    }
+    try { track('wan_s2v_start_ok', { jobId: data.job_id }); } catch(e) {}
+    if (data.spoken_text) {
+      stEl.textContent = '已提交。实际口播：「' + data.spoken_text.slice(0, 80) + (data.spoken_text.length > 80 ? '…' : '') + '」';
+    } else {
+      stEl.textContent = '已提交，排队/生成中…';
+    }
+    await pollWanS2vJob(data.job_id);
+  } catch (e) {
+    stEl.textContent = '请求异常：' + (e && e.message ? e.message : String(e));
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.addEventListener('keydown', e => {
+  const ta = document.getElementById('msg-input');
+  if (e.key === 'Enter' && document.activeElement === ta && !e.shiftKey) {
+    e.preventDefault();
+    sendMsg();
+  }
+});
+</script>
+</body>
+</html>

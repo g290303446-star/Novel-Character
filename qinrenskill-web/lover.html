@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>理想恋人 · 人物画像</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f5f3; color: #1a1a1a; min-height: 100vh; }
+
+  /* Header */
+  .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 20px 24px 16px; }
+  .header h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .header p { font-size: 13px; opacity: 0.85; }
+  .header .back-link { color: rgba(255,255,255,0.8); font-size: 13px; text-decoration: none; }
+  .header .back-link:hover { color: #fff; }
+
+  /* Step indicator */
+  .steps-bar { display: flex; gap: 0; padding: 16px 24px 0; background: #fff; border-bottom: 1px solid #e8e8e8; overflow-x: auto; }
+  .step-tab { flex: 1; min-width: 80px; text-align: center; padding: 10px 8px; font-size: 12px; color: #999; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap; }
+  .step-tab:hover { color: #666; }
+  .step-tab.active { color: #764ba2; border-bottom-color: #764ba2; font-weight: 600; }
+  .step-tab.done { color: #4caf50; }
+
+  /* Content area */
+  .content { max-width: 640px; margin: 0 auto; padding: 24px 16px 80px; }
+  .step-panel { display: none; }
+  .step-panel.active { display: block; }
+
+  /* Form elements */
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; font-weight: 500; color: #444; margin-bottom: 6px; }
+  .field .hint { font-size: 12px; color: #999; margin-top: 4px; line-height: 1.5; }
+  .field input[type="text"], .field textarea, .field select {
+    width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; font-family: inherit; background: #fff;
+  }
+  .field textarea { min-height: 80px; resize: vertical; line-height: 1.5; }
+  .field input:focus, .field textarea:focus, .field select:focus { outline: none; border-color: #764ba2; box-shadow: 0 0 0 2px rgba(118,75,162,0.1); }
+
+  /* Tag picker */
+  .tag-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag-btn { padding: 6px 14px; border: 1px solid #ddd; border-radius: 20px; font-size: 13px; background: #fff; cursor: pointer; transition: all 0.15s; }
+  .tag-btn:hover { border-color: #764ba2; color: #764ba2; }
+  .tag-btn.selected { background: #764ba2; color: #fff; border-color: #764ba2; }
+
+  /* Buttons */
+  .btn-row { display: flex; gap: 12px; justify-content: space-between; margin-top: 24px; }
+  .btn { padding: 10px 24px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-secondary { background: #fff; color: #666; border: 1px solid #ddd; }
+  .btn-secondary:hover { background: #f5f5f5; }
+
+  /* Preview */
+  .preview-box { background: #fafafa; border: 1px solid #e8e8e8; border-radius: 12px; padding: 16px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; max-height: 400px; overflow-y: auto; margin-bottom: 16px; }
+
+  /* Status */
+  .status-bar { font-size: 13px; color: #666; min-height: 20px; margin-bottom: 12px; }
+  .status-bar.error { color: #d32f2f; }
+  .status-bar.success { color: #2e7d32; }
+
+  /* Progress */
+  .progress-wrap { margin-bottom: 12px; }
+  .progress-bar { width: 100%; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); transition: width 0.3s; }
+
+  /* Chat mode */
+  #chat-view { display: none; }
+  #chat-view.visible { display: flex; flex-direction: column; height: 100vh; }
+  .chat-header { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+  .chat-header .back { cursor: pointer; font-size: 20px; }
+  .chat-header .name { font-size: 16px; font-weight: 600; }
+  .chat-msgs { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: #f5f5f3; }
+  .chat-msg { max-width: 75%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.55; word-break: break-word; }
+  .chat-msg.user { align-self: flex-end; background: #764ba2; color: #fff; border-bottom-right-radius: 3px; }
+  .chat-msg.ai { align-self: flex-start; background: #fff; border: 1px solid #e0e0e0; border-bottom-left-radius: 3px; }
+  .chat-input-bar { padding: 12px 16px; background: #fff; border-top: 1px solid #e8e8e8; display: flex; gap: 8px; }
+  .chat-input-bar textarea { flex: 1; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; font-family: inherit; resize: none; min-height: 44px; max-height: 120px; }
+  .chat-input-bar button { padding: 10px 20px; background: #764ba2; color: #fff; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
+  .chat-input-bar button:disabled { background: #ccc; }
+
+  .lover-debug { max-width: 640px; margin: 0 auto; padding: 0 16px 12px; background: #fff; border-bottom: 1px solid #e8e8e8; font-size: 12px; color: #666; }
+  .lover-debug summary { cursor: pointer; padding: 10px 0; user-select: none; }
+  .lover-debug .inner { padding-bottom: 8px; }
+  .lover-debug textarea { width: 100%; margin-top: 8px; padding: 8px; border: 1px solid #ddd; border-radius: 8px; font-family: ui-monospace, monospace; font-size: 11px; line-height: 1.4; }
+  .lover-debug .btn-tiny { padding: 6px 12px; font-size: 12px; margin-top: 8px; margin-right: 8px; }
+
+  @media(max-width: 600px) {
+    .steps-bar { padding: 12px 12px 0; }
+    .step-tab { font-size: 11px; padding: 8px 4px; }
+    .content { padding: 16px 12px 80px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Questionnaire View -->
+<div id="questionnaire-view">
+  <div class="header">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <h1>理想恋人 · 人物画像</h1>
+        <p>通过 7 步问卷定义你的理想恋人，然后与 TA 对话</p>
+        <p style="font-size:12px;color:#888;margin-top:6px;">请用本站地址打开（例如 <code>http://127.0.0.1:8000/lover</code>），勿用本地文件双击；并先在本机启动 <code>uvicorn server.main:app</code>。</p>
+      </div>
+      <a href="/" class="back-link">← 返回</a>
+    </div>
+  </div>
+
+  <div class="steps-bar" id="steps-bar"></div>
+
+  <details class="lover-debug">
+    <summary>调试：备份 / 恢复问卷（复制 JSON，避免每次重选）</summary>
+    <div class="inner">
+      <p style="line-height:1.5;color:#888;margin-bottom:6px;">与「档案 Markdown」不同：这是<strong>可恢复的完整选项数据</strong>。调试失败时复制下面 JSON，下次打开本页粘贴到文本框点恢复即可。</p>
+      <button type="button" class="btn btn-secondary btn-tiny" onclick="copyLoverDraftJson()">复制问卷 JSON</button>
+      <button type="button" class="btn btn-secondary btn-tiny" onclick="document.getElementById('lover-import-json').value=''">清空下方文本框</button>
+      <textarea id="lover-import-json" rows="5" placeholder="把上次复制的 JSON 整段贴在这里…"></textarea>
+      <button type="button" class="btn btn-secondary btn-tiny" onclick="importLoverDraftJson()">从 JSON 恢复</button>
+    </div>
+  </details>
+
+  <div class="content" id="content"></div>
+</div>
+
+<!-- Chat View -->
+<div id="chat-view">
+  <div class="chat-header">
+    <span class="back" onclick="backToQuestionnaire()">&#8592;</span>
+    <span class="name" id="chat-name"></span>
+  </div>
+  <div class="chat-msgs" id="chat-msgs"></div>
+  <div class="chat-input-bar">
+    <textarea id="chat-input" placeholder="输入消息… Enter 发送" rows="1"></textarea>
+    <button id="chat-send-btn" onclick="chatSend()">发送</button>
+  </div>
+</div>
+
+<script>
+const STEPS = [
+  { id: 'identity', label: '1. 身份基础' },
+  { id: 'intimacy', label: '2. 亲密与爱语' },
+  { id: 'role', label: '3. 关系角色' },
+  { id: 'emotion', label: '4. 情感表达' },
+  { id: 'conflict', label: '5. 冲突处理' },
+  { id: 'voice', label: '6. 声音与日常' },
+  { id: 'final', label: '7. 性格与边界' }
+];
+
+const PERSONALITY_TAGS = [
+  '温柔','霸道','体贴','幽默','独立','粘人','理性','感性','害羞','自信',
+  '神秘','阳光','成熟','孩子气','文艺','务实','浪漫','傲娇','毒舌','可靠',
+  '乐观','内向','外向','果断','细腻','慵懒','热情','冷静'
+];
+
+let currentStep = 0;
+let profile = loadDraft();
+let sessionId = '';
+let sessionName = '';
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem('lover_draft');
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  return {};
+}
+
+function saveDraft() {
+  try { localStorage.setItem('lover_draft', JSON.stringify(profile)); } catch(e) {}
+}
+
+// Render step tabs
+function renderSteps() {
+  const bar = document.getElementById('steps-bar');
+  bar.innerHTML = STEPS.map((s, i) =>
+    `<div class="step-tab ${i === currentStep ? 'active' : ''} ${i < currentStep ? 'done' : ''}" onclick="goStep(${i})">${s.label}</div>`
+  ).join('');
+}
+
+function goStep(n) {
+  currentStep = Math.max(0, Math.min(n, STEPS.length - 1));
+  renderSteps();
+  renderContent();
+}
+
+function renderContent() {
+  const el = document.getElementById('content');
+  const fn = STEP_RENDERERS[currentStep];
+  if (fn) el.innerHTML = fn();
+}
+
+function v(key) { return profile[key] || ''; }
+function sv(key, val) { profile[key] = val; saveDraft(); }
+
+const STEP_RENDERERS = [
+  // Step 0: Identity
+  function() {
+    return `
+      <div class="step-panel active">
+        <div class="field">
+          <label>TA 的名字</label>
+          <input type="text" value="${esc(v('persona_name'))}" placeholder="例如：星河" oninput="sv('persona_name',this.value)">
+        </div>
+        <div class="field">
+          <label>代词</label>
+          <select onchange="sv('pronouns',this.value)">
+            <option value="他" ${v('pronouns')==='他'?'selected':''}>他</option>
+            <option value="她" ${v('pronouns')==='她'?'selected':''}>她</option>
+            <option value="ta" ${!v('pronouns')||v('pronouns')==='ta'?'selected':''}>ta</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>年龄感觉</label>
+          <select onchange="sv('age_feel',this.value)">
+            <option value="">未指定</option>
+            ${['年轻','同龄','成熟','年长'].map(x=>`<option value="${x}" ${v('age_feel')===x?'selected':''}>${x}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>关系起点</label>
+          <select onchange="sv('relationship_start',this.value)">
+            <option value="">未指定</option>
+            ${['初识','暧昧中','已在一起','重逢','其他'].map(x=>`<option value="${x}" ${v('relationship_start')===x?'selected':''}>${x}</option>`).join('')}
+          </select>
+          <div class="hint">你们的故事从哪里开始？</div>
+        </div>
+        <div class="btn-row">
+          <div></div>
+          <button class="btn btn-primary" onclick="goStep(1)">下一步 →</button>
+        </div>
+      </div>`;
+  },
+
+  // Step 1: Intimacy & Love Language
+  function() {
+    return `
+      <div class="step-panel active">
+        <div class="field">
+          <label>亲密等级</label>
+          <select onchange="sv('intimacy_level',this.value)">
+            <option value="">未指定</option>
+            ${['初识','暧昧','热恋','稳定','灵魂伴侣'].map(x=>`<option value="${x}" ${v('intimacy_level')===x?'selected':''}>${x}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>主要爱语（最重要的表达方式）</label>
+          <select onchange="sv('primary_love_language',this.value)">
+            <option value="">未指定</option>
+            ${['肯定言辞','精心时刻','礼物表达','服务行动','身体接触'].map(x=>`<option value="${x}" ${v('primary_love_language')===x?'selected':''}>${x}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>次要爱语</label>
+          <select onchange="sv('secondary_love_language',this.value)">
+            <option value="">未指定</option>
+            ${['肯定言辞','精心时刻','礼物表达','服务行动','身体接触'].map(x=>`<option value="${x}" ${v('secondary_love_language')===x?'selected':''}>${x}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>爱语在文字中如何表现？</label>
+          <textarea placeholder="例如：TA 经常说'我想你'来表达肯定言辞；或者喜欢在聊天中描述'如果能在一起吃晚餐就好了'来表达精心时刻…"
+            oninput="sv('love_language_text',this.value)">${esc(v('love_language_text'))}</textarea>
+          <div class="hint">描述你希望 TA 在文字聊天中如何表达爱意</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="goStep(0)">← 上一步</button>
+          <button class="btn btn-primary" onclick="goStep(2)">下一步 →</button>
+        </div>
+      </div>`;
+  },
+
+  // Step 2: Relationship Role
+  function() {
+    return `
+      <div class="step-panel active">
+        <div class="field">
+          <label>伴侣类型</label>
+          <select onchange="sv('primary_role',this.value)">
+            <option value="">未指定</option>
+            ${['支持型伴侣','玩闹型伴侣','保护型伴侣','智识对等型','导师型','依赖型','混合型'].map(x=>`<option value="${x}" ${v('primary_role')===x?'selected':''}>${x}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>主动还是回应？</label>
+          <select onchange="sv('initiative_tendency',this.value)">
+            <option value="">未指定</option>
+            <option value="偏主动" ${v('initiative_tendency')==='偏主动'?'selected':''}>偏主动 — 会主动发消息、关心、安排</option>
+            <option value="平等" ${v('initiative_tendency')==='平等'?'selected':''}>平等 — 有来有往</option>
+            <option value="偏回应" ${v('initiative_tendency')==='偏回应'?'selected':''}>偏回应 — 等你起头，然后热烈回应</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>日常互动的感觉</label>
+          <textarea placeholder="例如：像两个好朋友慢慢变恋人，平时会互分享日常，偶尔打闹，但关键时刻彼此支持…"
+            oninput="sv('role_dynamics',this.value)">${esc(v('role_dynamics'))}</textarea>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="goStep(1)">← 上一步</button>
+          <button class="btn btn-primary" onclick="goStep(3)">下一步 →</button>
+        </div>
+      </div>`;
+  },
+
+  // Step 3: Emotional Expression
+  function() {
+    const emotions = [
+      { key: 'emotion_love', label: '表达爱意时', ph: '例如：直接说"我爱你"，或者用更含蓄的方式描述"今天的月亮让我想到你"' },
+      { key: 'emotion_anger', label: '生气时', ph: '例如：变得安静，说话简短带刺；或者会变得激动，直接表达不满' },
+      { key: 'emotion_sadness', label: '难过时', ph: '例如：变得沉默，或者会撒娇求安慰' },
+      { key: 'emotion_jealousy', label: '吃醋时', ph: '例如：假装不在意但语气酸酸的；或者直接问"TA是谁"' },
+      { key: 'emotion_vulnerability', label: '展示脆弱时', ph: '例如：只在深夜聊天时才会说起内心的不安' }
+    ];
+    return `
+      <div class="step-panel active">
+        <p style="font-size:13px;color:#666;margin-bottom:16px;line-height:1.5">描述 TA 在不同情感下的表现方式。如果不填，编译时会使用默认值。</p>
+        ${emotions.map(e => `
+          <div class="field">
+            <label>${e.label}</label>
+            <textarea placeholder="${e.ph}" oninput="sv('${e.key}',this.value)">${esc(v(e.key))}</textarea>
+          </div>
+        `).join('')}
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="goStep(2)">← 上一步</button>
+          <button class="btn btn-primary" onclick="goStep(4)">下一步 →</button>
+        </div>
+      </div>`;
+  },
+
+  // Step 4: Conflict Resolution
+  function() {
+    return `
+      <div class="step-panel active">
+        <div class="field">
+          <label>吵架时 TA 倾向于…</label>
+          <select onchange="sv('argument_style',this.value)">
+            <option value="">未指定</option>
+            ${['直接沟通，把话说开','先冷静一下再谈','寻求理解对方立场','沉默回避，等情绪过去'].map(x=>`<option value="${x}" ${v('argument_style')===x?'selected':''}>${x}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>TA 怎么和好？</label>
+          <select onchange="sv('repair_style',this.value)">
+            <option value="">未指定</option>
+            ${['主动道歉','用行动表示（做饭、送东西）','幽默化解尴尬','等待对方先示好'].map(x=>`<option value="${x}" ${v('repair_style')===x?'selected':''}>${x}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>绝对不要对 TA 说的话 / 做的事（底线）</label>
+          <textarea placeholder="例如：不要冷战超过一天；不要拿我和别人比较；不要在我难过时说教…"
+            oninput="sv('dealbreakers_text',this.value)">${esc(v('dealbreakers_text'))}</textarea>
+          <div class="hint">每行一条</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="goStep(3)">← 上一步</button>
+          <button class="btn btn-primary" onclick="goStep(5)">下一步 →</button>
+        </div>
+      </div>`;
+  },
+
+  // Step 5: Romantic Voice & Daily Rhythm
+  function() {
+    return `
+      <div class="step-panel active">
+        <div class="field">
+          <label>说话的浪漫风格</label>
+          <select onchange="sv('romantic_voice_style',this.value)">
+            <option value="">未指定</option>
+            ${['flirty（撩人）','真诚直白','诗意浪漫','幽默风趣','含蓄内敛'].map(x=>`<option value="${x}" ${v('romantic_voice_style')===x?'selected':''}>${x}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>TA 怎么称呼你？</label>
+          <input type="text" value="${esc(v('endearment_terms_text'))}" placeholder="例如：宝贝、笨蛋、小朋友… 多个用逗号分隔" oninput="sv('endearment_terms_text',this.value)">
+        </div>
+        <div class="field">
+          <label>早上会…</label>
+          <input type="text" value="${esc(v('rhythm_morning'))}" placeholder="例如：发一句"早安"加一个太阳表情" oninput="sv('rhythm_morning',this.value)">
+        </div>
+        <div class="field">
+          <label>白天会…</label>
+          <input type="text" value="${esc(v('rhythm_daytime'))}" placeholder="例如：偶尔分享看到的有趣东西，不会频繁打扰" oninput="sv('rhythm_daytime',this.value)">
+        </div>
+        <div class="field">
+          <label>睡前会…</label>
+          <input type="text" value="${esc(v('rhythm_evening'))}" placeholder="例如：聊一会儿今天过得怎样，然后说晚安" oninput="sv('rhythm_evening',this.value)">
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="goStep(4)">← 上一步</button>
+          <button class="btn btn-primary" onclick="goStep(6)">下一步 →</button>
+        </div>
+      </div>`;
+  },
+
+  // Step 6: Personality, Appearance & Boundaries
+  function() {
+    const selected = (v('personality_traits_text') || '').split(/[,，\s]+/).filter(Boolean);
+    return `
+      <div class="step-panel active">
+        <div class="field">
+          <label>性格标签（点击选择 3-8 个）</label>
+          <div class="tag-picker">
+            ${PERSONALITY_TAGS.map(t =>
+              `<div class="tag-btn ${selected.includes(t)?'selected':''}" onclick="toggleTag(this,'${t}')">${t}</div>`
+            ).join('')}
+          </div>
+          <input type="hidden" id="traits-hidden" value="${esc(selected.join(','))}">
+        </div>
+        <div class="field">
+          <label>外貌感觉（可选）</label>
+          <textarea placeholder="例如：高高的瘦瘦的，笑起来有酒窝，喜欢穿宽松的毛衣…"
+            oninput="sv('physical_description',this.value)">${esc(v('physical_description'))}</textarea>
+        </div>
+        <div class="field">
+          <label>爱好 / 职业（可选）</label>
+          <input type="text" value="${esc(v('profession'))}" placeholder="例如：程序员，喜欢摄影和做饭" oninput="sv('profession',this.value)">
+        </div>
+        <div class="field">
+          <label>硬边界（绝对不要做的事）</label>
+          <textarea placeholder="例如：不要控制我的社交；不要在争吵时说分手；不要欺骗…"
+            oninput="sv('hard_boundaries_text',this.value)">${esc(v('hard_boundaries_text'))}</textarea>
+          <div class="hint">每行一条。系统默认已包含"不冒充真人"等伦理边界。</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="goStep(5)">← 上一步</button>
+          <button class="btn btn-primary" onclick="showPreview()">预览并生成 →</button>
+        </div>
+      </div>`;
+  }
+];
+
+function toggleTag(el, tag) {
+  el.classList.toggle('selected');
+  const selected = [];
+  document.querySelectorAll('.tag-btn.selected').forEach(b => selected.push(b.textContent));
+  profile.personality_traits_text = selected.join(',');
+  saveDraft();
+}
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/** 把各步原始字段整理成提交/备份用的结构化字段（与预览、生成共用） */
+function applyStructuredFieldsToProfile() {
+  profile.personality_traits = (profile.personality_traits_text || '').split(/[,，]+/).filter(Boolean);
+  profile.dealbreakers = (profile.dealbreakers_text || '').split(/\n/).map(function(s) { return s.trim(); }).filter(Boolean);
+  profile.endearment_terms = (profile.endearment_terms_text || '').split(/[,，]+/).map(function(s) { return s.trim(); }).filter(Boolean);
+  profile.daily_rhythm = {};
+  if (profile.rhythm_morning) profile.daily_rhythm['早晨'] = profile.rhythm_morning;
+  if (profile.rhythm_daytime) profile.daily_rhythm['白天'] = profile.rhythm_daytime;
+  if (profile.rhythm_evening) profile.daily_rhythm['晚间'] = profile.rhythm_evening;
+  profile.emotional_expression = {};
+  if (profile.emotion_love) profile.emotional_expression['表达爱意时'] = profile.emotion_love;
+  if (profile.emotion_anger) profile.emotional_expression['生气时'] = profile.emotion_anger;
+  if (profile.emotion_sadness) profile.emotional_expression['难过时'] = profile.emotion_sadness;
+  if (profile.emotion_jealousy) profile.emotional_expression['吃醋时'] = profile.emotion_jealousy;
+  if (profile.emotion_vulnerability) profile.emotional_expression['展示脆弱时'] = profile.emotion_vulnerability;
+  if (profile.hard_boundaries_text) {
+    profile.hard_boundaries = profile.hard_boundaries_text.split(/\n/).map(function(s) { return s.trim(); }).filter(Boolean);
+  }
+}
+
+// Preview & Generate
+function showPreview() {
+  applyStructuredFieldsToProfile();
+  saveDraft();
+
+  const md = buildProfileMarkdown();
+
+  const el = document.getElementById('content');
+  el.innerHTML = `
+    <div class="step-panel active">
+      <h2 style="font-size:16px;font-weight:600;margin-bottom:12px;color:#333;">档案预览</h2>
+      <div class="preview-box">${esc(md)}</div>
+
+      <div class="field">
+        <label>DeepSeek API Key</label>
+        <input type="password" id="lover-api-key" placeholder="sk-..." autocomplete="off">
+      </div>
+
+      <div id="lover-status" class="status-bar"></div>
+      <div id="lover-progress" class="progress-wrap" style="display:none;">
+        <div class="progress-bar"><div class="progress-fill" id="lover-progress-fill" style="width:0%"></div></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goStep(6)">← 返回修改</button>
+        <button class="btn btn-primary" id="lover-gen-btn" onclick="generateAndChat()">生成扮演指令并进入对话</button>
+      </div>
+
+      <p style="font-size:12px;color:#999;margin-top:16px;line-height:1.5">
+        提示：「Markdown」给人读；「问卷 JSON」可把<strong>全部选项</strong>一次备份/恢复，调试不必重选。
+        <br>
+        <button type="button" class="btn btn-secondary" style="padding:4px 12px;font-size:12px;margin-top:8px;margin-right:6px;" onclick="copyMarkdown('${encodeURIComponent(md)}')">复制档案 Markdown</button>
+        <button type="button" class="btn btn-secondary" style="padding:4px 12px;font-size:12px;margin-top:8px;" onclick="copyLoverDraftJson()">复制问卷 JSON</button>
+      </p>
+    </div>`;
+}
+
+function buildProfileMarkdown() {
+  return `# 理想恋人档案
+
+## Meta
+- 名字：${profile.persona_name || '（未指定）'}
+- 代词：${profile.pronouns || 'ta'}
+- 年龄感：${profile.age_feel || '（未指定）'}
+- 关系起点：${profile.relationship_start || '（未指定）'}
+
+## 1. Intimacy
+- 亲密等级：${profile.intimacy_level || '（未指定）'}
+- 主要爱语：${profile.primary_love_language || '（未指定）'}
+- 次要爱语：${profile.secondary_love_language || '（未指定）'}
+
+## 2. Relationship Role
+- 主角色：${profile.primary_role || '（未指定）'}
+- 主动/回应：${profile.initiative_tendency || '（未指定）'}
+- 动态：${profile.role_dynamics || '（未指定）'}
+
+## 3. Emotional Expression
+${Object.entries(profile.emotional_expression || {}).map(([k,v]) => `- ${k}：${v}`).join('\n') || '- （未指定）'}
+
+## 4. Conflict Resolution
+- 吵架风格：${profile.argument_style || '（未指定）'}
+- 和好方式：${profile.repair_style || '（未指定）'}
+- 底线：${(profile.dealbreakers || []).map(x => '\n  - ' + x).join('') || '（未指定）'}
+
+## 5. Romantic Voice
+- 风格：${profile.romantic_voice_style || '（未指定）'}
+- 称呼：${(profile.endearment_terms || []).join('、') || '（未指定）'}
+
+## 6. Daily Rhythm
+${Object.entries(profile.daily_rhythm || {}).map(([k,v]) => `- ${k}：${v}`).join('\n') || '- （未指定）'}
+
+## 7. Personality
+- 特质：${(profile.personality_traits || []).map(x => '\n  - ' + x).join('') || '（未指定）'}
+
+## 8. Appearance
+- 外形：${profile.physical_description || '（未指定）'}
+- 职业/爱好：${profile.profession || '（未指定）'}
+
+## 9. HardBoundaries
+${(profile.hard_boundaries || []).map(x => '- ' + x).join('\n') || '- （未指定）'}
+`;
+}
+
+function copyMarkdown(encoded) {
+  const md = decodeURIComponent(encoded);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(md).then(function () { alert('已复制 Markdown'); }, function () { alert('复制失败，请手动全选预览区'); });
+  }
+}
+
+/** 导出完整选项（含各步字段），用于调试备份；恢复时用下方「从 JSON 恢复」 */
+function copyLoverDraftJson() {
+  applyStructuredFieldsToProfile();
+  saveDraft();
+  var payload = { lover_draft_v1: true, saved_at: new Date().toISOString(), data: profile };
+  var text = JSON.stringify(payload, null, 2);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () {
+      alert('已复制问卷 JSON（可贴到本页「调试」区或记事本保存）');
+    }, function () {
+      window.prompt('请手动复制：', text);
+    });
+  } else {
+    window.prompt('请手动复制：', text);
+  }
+}
+
+function importLoverDraftJson() {
+  var ta = document.getElementById('lover-import-json');
+  var raw = (ta && ta.value.trim()) || '';
+  if (!raw) {
+    alert('请先把备份 JSON 贴进文本框');
+    return;
+  }
+  var parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    alert('JSON 解析失败：' + (e.message || String(e)));
+    return;
+  }
+  var data = parsed && parsed.lover_draft_v1 && parsed.data ? parsed.data : parsed;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    alert('格式不对：请使用本页「复制问卷 JSON」生成的整段，或包含 lover_draft_v1 + data 的对象');
+    return;
+  }
+  profile = data;
+  if (Array.isArray(profile.personality_traits) && profile.personality_traits.length && !profile.personality_traits_text) {
+    profile.personality_traits_text = profile.personality_traits.join(',');
+  }
+  saveDraft();
+  currentStep = 0;
+  renderSteps();
+  renderContent();
+  alert('已恢复。可从第 1 步逐项检查；需要提交前请再到第 7 步点「预览并生成」。');
+}
+
+function apiErrorMessage(errBody, fallback) {
+  if (errBody == null || typeof errBody !== 'object') return fallback;
+  const d = errBody.detail;
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d)) {
+    return d.map(function (x) {
+      if (typeof x === 'string') return x;
+      if (x && typeof x.msg === 'string') return x.msg;
+      try { return JSON.stringify(x); } catch (e) { return String(x); }
+    }).join('；') || fallback;
+  }
+  return fallback;
+}
+
+async function generateAndChat() {
+  const key = document.getElementById('lover-api-key').value.trim();
+  if (!key) { alert('请填写 API Key'); return; }
+  if (!profile.persona_name) { alert('请至少填写 TA 的名字'); return; }
+
+  const statusEl = document.getElementById('lover-status');
+  const progWrap = document.getElementById('lover-progress');
+  const progFill = document.getElementById('lover-progress-fill');
+  const btn = document.getElementById('lover-gen-btn');
+
+  btn.disabled = true;
+  statusEl.className = 'status-bar';
+  statusEl.textContent = '正在提交档案…';
+  progWrap.style.display = 'block';
+  progFill.style.width = '10%';
+
+  try {
+    applyStructuredFieldsToProfile();
+    saveDraft();
+
+    // Step 1: Submit questionnaire
+    const body = {
+      persona_name: profile.persona_name || '',
+      pronouns: profile.pronouns || 'ta',
+      age_feel: profile.age_feel || '',
+      relationship_start: profile.relationship_start || '',
+      intimacy_level: profile.intimacy_level || '',
+      emotional_closeness: profile.emotional_closeness || '',
+      primary_love_language: profile.primary_love_language || '',
+      secondary_love_language: profile.secondary_love_language || '',
+      primary_role: profile.primary_role || '',
+      initiative_tendency: profile.initiative_tendency || '',
+      role_dynamics: profile.role_dynamics || '',
+      emotional_expression: profile.emotional_expression || {},
+      argument_style: profile.argument_style || '',
+      repair_style: profile.repair_style || '',
+      dealbreakers: profile.dealbreakers || [],
+      romantic_voice_style: profile.romantic_voice_style || '',
+      endearment_terms: profile.endearment_terms || [],
+      daily_rhythm: profile.daily_rhythm || {},
+      personality_traits: profile.personality_traits || [],
+      values: profile.values || [],
+      quirks: profile.quirks || [],
+      physical_description: profile.physical_description || '',
+      profession: profile.profession || '',
+      hard_boundaries: profile.hard_boundaries || [],
+      soft_boundaries: profile.soft_boundaries || [],
+      do_not_infer: profile.do_not_infer || [],
+    };
+
+    statusEl.textContent = '正在生成恋人档案…';
+    progFill.style.width = '20%';
+
+    const resp1 = await fetch('/api/lover/questionnaire', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!resp1.ok) {
+      const err = await resp1.json().catch(() => ({}));
+      throw new Error(apiErrorMessage(err, '提交问卷失败（HTTP ' + resp1.status + '）'));
+    }
+    const data1 = await resp1.json();
+    const profileId = data1.profile_id;
+
+    // Step 2: Compile to system prompt
+    statusEl.textContent = '正在编译扮演指令…';
+    progFill.style.width = '50%';
+
+    const resp2 = await fetch('/api/lover/compile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile_id: profileId, api_key: key }),
+    });
+    if (!resp2.ok) {
+      const err = await resp2.json().catch(() => ({}));
+      throw new Error(apiErrorMessage(err, '编译扮演指令失败（HTTP ' + resp2.status + '）'));
+    }
+    const data2 = await resp2.json();
+    const systemPrompt = data2.system_prompt;
+
+    statusEl.textContent = '正在创建会话…';
+    progFill.style.width = '80%';
+
+    // Step 3: Create session
+    const fd = new FormData();
+    fd.append('api_key', key);
+    fd.append('character_name', profile.persona_name);
+    fd.append('system_prompt', systemPrompt);
+
+    const resp3 = await fetch('/api/session/lover', { method: 'POST', body: fd });
+    if (!resp3.ok) {
+      const err = await resp3.json().catch(() => ({}));
+      throw new Error(apiErrorMessage(err, '创建会话失败（HTTP ' + resp3.status + '）'));
+    }
+
+    progFill.style.width = '100%';
+    statusEl.className = 'status-bar success';
+    statusEl.textContent = '完成！进入对话…';
+
+    sessionName = profile.persona_name;
+    setTimeout(() => enterChat(), 500);
+
+  } catch (e) {
+    statusEl.className = 'status-bar error';
+    statusEl.textContent = '失败：' + e.message;
+    btn.disabled = false;
+    progWrap.style.display = 'none';
+  }
+}
+
+function enterChat() {
+  document.getElementById('questionnaire-view').style.display = 'none';
+  const cv = document.getElementById('chat-view');
+  cv.classList.add('visible');
+  document.getElementById('chat-name').textContent = sessionName;
+  document.getElementById('chat-msgs').innerHTML = '';
+  addChatMsg('ai', `你好，我是${sessionName}。很高兴见到你。`);
+}
+
+function backToQuestionnaire() {
+  document.getElementById('chat-view').classList.remove('visible');
+  document.getElementById('questionnaire-view').style.display = '';
+}
+
+function addChatMsg(role, text) {
+  const el = document.createElement('div');
+  el.className = 'chat-msg ' + (role === 'user' ? 'user' : 'ai');
+  el.textContent = text;
+  document.getElementById('chat-msgs').appendChild(el);
+  el.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function chatSend() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  addChatMsg('user', text);
+
+  const btn = document.getElementById('chat-send-btn');
+  btn.disabled = true;
+
+  // Show thinking
+  const thinking = document.createElement('div');
+  thinking.className = 'chat-msg ai';
+  thinking.innerHTML = '<span style="color:#999">正在输入中…</span>';
+  document.getElementById('chat-msgs').appendChild(thinking);
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    thinking.remove();
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      addChatMsg('ai', '（回复失败：' + (err.detail || '未知错误') + '）');
+    } else {
+      const data = await resp.json();
+      addChatMsg('ai', data.reply);
+    }
+  } catch (e) {
+    thinking.remove();
+    addChatMsg('ai', '（网络错误：' + e.message + '）');
+  }
+  btn.disabled = false;
+  document.getElementById('chat-input').focus();
+}
+
+// Auto-resize chat input
+document.addEventListener('DOMContentLoaded', function() {
+  renderSteps();
+  renderContent();
+
+  const chatInput = document.getElementById('chat-input');
+  chatInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend(); }
+  });
+  chatInput.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+  });
+});
+</script>
+
+</body>
+</html>
